@@ -44,4 +44,21 @@
         <item>Relaxed</item>
     </string-array>
 
+    <string-array name="app_lock_timeout_entries">
+        <item>@string/app_lock_timeout_immediately</item>
+        <item>@string/app_lock_timeout_1_minute</item>
+        <item>@string/app_lock_timeout_3_minutes</item>
+        <item>@string/app_lock_timeout_5_minutes</item>
+    </string-array>
+
+    <string-array name="app_lock_timeout_values" translatable="false">
+        <item>0</item>
+        <item>1</item>
+        <item>3</item>
+        <item>5</item>
+        <item>10</item>
+        <item>15</item>
+        <item>30</item>
+    </string-array>
+
 </resources>

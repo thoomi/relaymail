@@ -39,6 +39,7 @@ androidxLifecycle = "2.10.0"
 androidxLocalBroadcastManager = "1.1.0"
 androidxNavigation = "2.9.6"
 androidxRecyclerView = "1.4.0"
+androidxSecurityCrypto = "1.1.0-alpha06"
 androidxPreference = "1.2.1"
 androidxSwiperefreshlayout = "1.2.0"
 androidxTestCore = "1.7.0"
@@ -202,6 +203,7 @@ androidx-navigation-ui = { module = "androidx.navigation:navigation-ui", version
 androidx-navigation-testing = { module = "androidx.navigation:navigation-testing", version.ref = "androidxNavigation" }
 androidx-preference = { module = "androidx.preference:preference", version.ref = "androidxPreference" }
 androidx-recyclerview = { module = "androidx.recyclerview:recyclerview", version.ref = "androidxRecyclerView" }
+androidx-security-crypto = { module = "androidx.security:security-crypto", version.ref = "androidxSecurityCrypto" }
 androidx-swiperefreshlayout = { module = "androidx.swiperefreshlayout:swiperefreshlayout", version.ref = "androidxSwiperefreshlayout" }
 androidx-test-core = { module = "androidx.test:core", version.ref = "androidxTestCore" }
 androidx-test-espresso-core = { module = "androidx.test.espresso:espresso-core", version.ref = "androidxTestEspresso" }

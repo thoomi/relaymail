@@ -27,6 +27,7 @@ import java.util.Calendar
 import java.util.Locale
 import net.thunderbird.core.featureflag.FeatureFlagProvider
 import net.thunderbird.core.featureflag.toFeatureFlagKey
+import net.thunderbird.feature.applock.api.AppLockCoordinator
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
 
@@ -36,6 +37,7 @@ class GeneralSettingsFragment : PreferenceFragmentCompat() {
     private val telemetryManager: TelemetryManager by inject()
     private val featureFlagProvider: FeatureFlagProvider by inject()
     private val jobManager: K9JobManager by inject()
+    private val appLockCoordinator: AppLockCoordinator by inject()
 
     private var rootKey: String? = null
     private var currentUiState: GeneralSettingsUiState? = null
@@ -112,6 +114,7 @@ class GeneralSettingsFragment : PreferenceFragmentCompat() {
         }
 
         initializeDataCollection()
+        initializeAppLock()
 
         viewModel.uiState.observe(this) { uiState ->
             updateUiState(uiState)
@@ -171,6 +174,26 @@ class GeneralSettingsFragment : PreferenceFragmentCompat() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        updateAppLockPreference()
+    }
+
+    private fun initializeAppLock() {
+        updateAppLockPreference()
+    }
+
+    private fun updateAppLockPreference() {
+        val appLockPreference = findPreference<Preference>(PREFERENCE_APP_LOCK_ENABLED) ?: return
+        val available = appLockCoordinator.isAuthenticationAvailable
+        appLockPreference.isEnabled = available
+        appLockPreference.summary = if (available) {
+            getString(R.string.settings_app_lock_summary)
+        } else {
+            getString(R.string.settings_app_lock_biometric_not_available)
+        }
+    }
+
     private fun updateUiState(uiState: GeneralSettingsUiState) {
         val oldUiState = currentUiState
         currentUiState = uiState
@@ -220,6 +243,7 @@ class GeneralSettingsFragment : PreferenceFragmentCompat() {
     companion object {
         private const val PREFERENCE_SCREEN_DEBUGGING = "debug_preferences"
         private const val PREFERENCE_DATA_COLLECTION = "data_collection"
+        private const val PREFERENCE_APP_LOCK_ENABLED = "app_lock_enabled"
         const val DEFAULT_SYNC_FILENAME = "thunderbird-sync-logs"
 
         fun create(rootKey: String? = null) = GeneralSettingsFragment().withArguments(ARG_PREFERENCE_ROOT to rootKey)

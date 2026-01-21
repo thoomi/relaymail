@@ -4,6 +4,7 @@ plugins {
 
 dependencies {
     implementation(projects.legacy.core)
+    implementation(projects.feature.applock.api)
 
     api(projects.core.ui.theme.manager)
 

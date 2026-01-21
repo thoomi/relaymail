@@ -22,6 +22,7 @@ import java.util.Locale
 import kotlin.math.max
 import net.thunderbird.core.ui.theme.api.Theme
 import net.thunderbird.core.ui.theme.manager.ThemeManager
+import net.thunderbird.feature.applock.api.AppLockGate
 import org.koin.android.ext.android.inject
 
 abstract class BaseActivity(
@@ -32,6 +33,7 @@ abstract class BaseActivity(
     private val pushController: PushController by inject()
     protected val themeManager: ThemeManager by inject()
     private val appLanguageManager: AppLanguageManager by inject()
+    private val appLockGateFactory: AppLockGate.Factory by inject()
 
     private var overrideLocaleOnLaunch: Locale? = null
 
@@ -48,7 +50,6 @@ abstract class BaseActivity(
     override fun onCreate(savedInstanceState: Bundle?) {
         initializeTheme()
         initializePushController()
-
         enableEdgeToEdge()
 
         WindowCompat.getInsetsController(window, window.decorView).apply {
@@ -59,6 +60,11 @@ abstract class BaseActivity(
 
         setLayoutDirection()
         listenForAppLanguageChanges()
+        setupAppLock()
+    }
+
+    private fun setupAppLock() {
+        lifecycle.addObserver(appLockGateFactory.create(this))
     }
 
     // On Android 12+ the layout direction doesn't seem to be updated when recreating the activity. This is a problem

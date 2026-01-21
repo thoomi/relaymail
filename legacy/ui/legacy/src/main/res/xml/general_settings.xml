@@ -514,6 +514,31 @@
     </PreferenceScreen>
 
     <PreferenceScreen
+        android:icon="@drawable/ic_lock"
+        android:key="security_preferences"
+        android:title="@string/security_preferences"
+        search:ignore="true"
+        >
+
+        <CheckBoxPreference
+            android:key="app_lock_enabled"
+            android:summary="@string/settings_app_lock_summary"
+            android:title="@string/settings_app_lock_title"
+            />
+
+        <ListPreference
+            android:dependency="app_lock_enabled"
+            android:dialogTitle="@string/settings_app_lock_timeout_title"
+            android:entries="@array/app_lock_timeout_entries"
+            android:entryValues="@array/app_lock_timeout_values"
+            android:key="app_lock_timeout"
+            app:useSimpleSummaryProvider="true"
+            android:title="@string/settings_app_lock_timeout_title"
+            />
+
+    </PreferenceScreen>
+
+    <PreferenceScreen
         android:icon="@drawable/ic_security"
         android:key="privacy_preferences"
         android:title="@string/privacy_preferences"

@@ -28,6 +28,7 @@ val settingsUiModule = module {
             appLanguageManager = get(),
             generalSettingsManager = get(),
             telemetryManager = get(),
+            appLockCoordinator = get(),
         )
     }
     single(named("SaveSettingsExecutorService")) {

@@ -627,6 +627,15 @@
     <string name="global_preferences">Global</string>
     <string name="debug_preferences">Debugging</string>
     <string name="privacy_preferences">Privacy</string>
+    <string name="security_preferences">Security</string>
+    <string name="settings_app_lock_title">App lock</string>
+    <string name="settings_app_lock_summary">Require device authentication to open the app. This does not encrypt data stored on the device.</string>
+    <string name="settings_app_lock_timeout_title">Lock timeout</string>
+    <string name="settings_app_lock_biometric_not_available">Device authentication is not available. Activate device lock to enable.</string>
+    <string name="app_lock_timeout_immediately">Immediately</string>
+    <string name="app_lock_timeout_1_minute">1 minute</string>
+    <string name="app_lock_timeout_3_minutes">3 minutes</string>
+    <string name="app_lock_timeout_5_minutes">5 minutes</string>
     <string name="network_preferences">Network</string>
     <string name="interaction_preferences">Interaction</string>
     <string name="accountlist_preferences">Account list</string>

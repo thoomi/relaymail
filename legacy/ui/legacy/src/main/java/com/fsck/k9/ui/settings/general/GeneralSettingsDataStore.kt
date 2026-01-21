@@ -17,6 +17,7 @@ import net.thunderbird.core.preference.SplitViewMode
 import net.thunderbird.core.preference.SubTheme
 import net.thunderbird.core.preference.display.visualSettings.message.list.UiDensity
 import net.thunderbird.core.preference.update
+import net.thunderbird.feature.applock.api.AppLockCoordinator
 
 @Suppress("LargeClass")
 class GeneralSettingsDataStore(
@@ -24,6 +25,7 @@ class GeneralSettingsDataStore(
     private val appLanguageManager: AppLanguageManager,
     private val generalSettingsManager: GeneralSettingsManager,
     private val telemetryManager: TelemetryManager,
+    private val appLockCoordinator: AppLockCoordinator,
 ) : PreferenceDataStore() {
 
     private var skipSaveSettings = false
@@ -66,6 +68,7 @@ class GeneralSettingsDataStore(
             "sensitive_logging" -> debuggingSettings.isSensitiveLoggingEnabled
             "volume_navigation" -> interactionSettings.useVolumeKeysForNavigation
             "enable_telemetry" -> K9.isTelemetryEnabled
+            "app_lock_enabled" -> appLockCoordinator.config.isEnabled
             else -> defValue
         }
     }
@@ -107,6 +110,10 @@ class GeneralSettingsDataStore(
             "sensitive_logging" -> setIsSensitiveLoggingEnabled(isSensitiveLoggingEnabled = value)
             "volume_navigation" -> setUseVolumeKeysForNavigation(value)
             "enable_telemetry" -> setTelemetryEnabled(value)
+            "app_lock_enabled" -> {
+                skipSaveSettings = true
+                setAppLockEnabled(value)
+            }
             else -> return
         }
 
@@ -170,6 +177,7 @@ class GeneralSettingsDataStore(
             "message_list_density" -> messageListSettings.uiDensity.toString()
             "post_remove_navigation" -> interactionSettings.messageViewPostRemoveNavigation
             "post_mark_as_unread_navigation" -> K9.messageViewPostMarkAsUnreadNavigation.name
+            "app_lock_timeout" -> getAppLockTimeoutMinutes().toString()
             else -> defValue
         }
     }
@@ -218,6 +226,11 @@ class GeneralSettingsDataStore(
             "post_remove_navigation" -> setMessageViewPostRemoveNavigation(value)
             "post_mark_as_unread_navigation" -> {
                 K9.messageViewPostMarkAsUnreadNavigation = PostMarkAsUnreadNavigation.valueOf(value)
+            }
+
+            "app_lock_timeout" -> {
+                skipSaveSettings = true
+                setAppLockTimeout(value.toInt())
             }
 
             else -> return
@@ -852,5 +865,21 @@ class GeneralSettingsDataStore(
                 ),
             )
         }
+    }
+
+    private fun setAppLockEnabled(enabled: Boolean) {
+        val currentConfig = appLockCoordinator.config
+        appLockCoordinator.onSettingsChanged(currentConfig.copy(isEnabled = enabled))
+    }
+
+    private fun getAppLockTimeoutMinutes(): Int {
+        val timeoutMillis = appLockCoordinator.config.timeoutMillis
+        return (timeoutMillis / 60_000L).toInt()
+    }
+
+    private fun setAppLockTimeout(minutes: Int) {
+        val currentConfig = appLockCoordinator.config
+        val timeoutMillis = minutes * 60_000L
+        appLockCoordinator.onSettingsChanged(currentConfig.copy(timeoutMillis = timeoutMillis))
     }
 }
