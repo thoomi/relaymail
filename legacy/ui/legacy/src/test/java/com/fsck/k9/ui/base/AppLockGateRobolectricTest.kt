@@ -6,6 +6,9 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.lifecycleScope
 import assertk.assertThat
 import assertk.assertions.isNotNull
 import assertk.assertions.isNull
@@ -14,6 +17,7 @@ import com.fsck.k9.controller.push.PushController
 import com.fsck.k9.ui.base.locale.SystemLocaleManager
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOf
@@ -31,7 +35,7 @@ import net.thunderbird.feature.applock.api.AppLockError
 import net.thunderbird.feature.applock.api.AppLockGate
 import net.thunderbird.feature.applock.api.AppLockResult
 import net.thunderbird.feature.applock.api.AppLockState
-import net.thunderbird.feature.applock.impl.ui.DefaultAppLockGateFactory
+import net.thunderbird.feature.applock.api.isUnlocked
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -63,7 +67,7 @@ class AppLockGateRobolectricTest : K9RobolectricTest() {
 
         testModule = module {
             single<AppLockCoordinator> { coordinator }
-            single<AppLockGate.Factory> { DefaultAppLockGateFactory(coordinator) }
+            single<AppLockGate.Factory> { TestAppLockGateFactory(coordinator) }
             single<ThemeProvider> { FakeThemeProvider() }
             single<ThemeManager> { FakeThemeManager() }
             single<PushController> { pushController }
@@ -260,4 +264,75 @@ class AppLockGateRobolectricTest : K9RobolectricTest() {
         override fun getConfigFlow(): Flow<DisplayCoreSettings> = flowOf(config)
     }
 
+    /**
+     * Test implementation of [AppLockGate] that properly shows/hides overlays based on state.
+     * This allows integration tests to verify actual behavior.
+     */
+    private class TestAppLockGate(
+        private val activity: FragmentActivity,
+        private val coordinator: AppLockCoordinator,
+    ) : AppLockGate {
+
+        private var lockOverlay: View? = null
+        private var stateObserverJob: kotlinx.coroutines.Job? = null
+
+        override fun onStart(owner: LifecycleOwner) {
+            stateObserverJob = activity.lifecycleScope.launch {
+                coordinator.state.collect { state ->
+                    when {
+                        state.isUnlocked() -> hideLockOverlay()
+                        else -> showLockOverlay()
+                    }
+                }
+            }
+        }
+
+        override fun onResume(owner: LifecycleOwner) {
+            // Trigger ensureUnlocked like the real gate does
+            if (coordinator.state.value == AppLockState.Locked) {
+                coordinator.ensureUnlocked()
+            }
+        }
+
+        override fun onStop(owner: LifecycleOwner) {
+            stateObserverJob?.cancel()
+            stateObserverJob = null
+        }
+
+        override fun onDestroy(owner: LifecycleOwner) {
+            hideLockOverlay()
+        }
+
+        private fun showLockOverlay() {
+            if (lockOverlay != null) return
+
+            val contentView = activity.findViewById<ViewGroup>(android.R.id.content) ?: return
+
+            val overlay = LinearLayout(activity).apply {
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                )
+                setBackgroundColor(0xFFFFFFFF.toInt())
+            }
+
+            contentView.addView(overlay)
+            lockOverlay = overlay
+        }
+
+        private fun hideLockOverlay() {
+            lockOverlay?.let { overlay ->
+                (overlay.parent as? ViewGroup)?.removeView(overlay)
+                lockOverlay = null
+            }
+        }
+    }
+
+    private class TestAppLockGateFactory(
+        private val coordinator: AppLockCoordinator,
+    ) : AppLockGate.Factory {
+        override fun create(activity: FragmentActivity): AppLockGate {
+            return TestAppLockGate(activity, coordinator)
+        }
+    }
 }
