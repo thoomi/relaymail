@@ -175,13 +175,9 @@ internal class DefaultAppLockGate(
     }
 
     private fun onRetryClicked() {
-        if (coordinator.ensureUnlocked()) {
-            val newState = coordinator.state.value
-            if (newState is AppLockState.Unlocking) {
-                lastAttemptId = newState.attemptId
-                launchAuthentication()
-            }
-        }
+        // Just request unlock - the state collector will observe the transition
+        // to Unlocking and trigger authentication via triggerAuthenticationIfNeeded()
+        coordinator.ensureUnlocked()
     }
 
     private fun getErrorMessage(error: AppLockError): String {
@@ -192,10 +188,19 @@ internal class DefaultAppLockGate(
             is AppLockError.Canceled -> activity.getString(R.string.applock_error_canceled)
             is AppLockError.Interrupted -> activity.getString(R.string.applock_error_failed)
             is AppLockError.Lockout -> {
-                if (error.durationSeconds > 0) {
-                    activity.getString(R.string.applock_error_lockout, error.durationSeconds)
-                } else {
-                    activity.getString(R.string.applock_error_lockout_unknown)
+                when {
+                    error.durationSeconds < 0 -> {
+                        // Permanent lockout - user must unlock device to reset
+                        activity.getString(R.string.applock_error_lockout_permanent)
+                    }
+                    error.durationSeconds > 0 -> {
+                        // Temporary lockout with known duration
+                        activity.getString(R.string.applock_error_lockout, error.durationSeconds)
+                    }
+                    else -> {
+                        // Temporary lockout with unknown duration
+                        activity.getString(R.string.applock_error_lockout_unknown)
+                    }
                 }
             }
             is AppLockError.UnableToStart -> {

@@ -101,7 +101,8 @@ class BiometricAuthenticator(
             -> AppLockError.Interrupted
 
             BiometricPrompt.ERROR_LOCKOUT -> AppLockError.Lockout(durationSeconds = 0)
-            BiometricPrompt.ERROR_LOCKOUT_PERMANENT -> AppLockError.Lockout(durationSeconds = Int.MAX_VALUE)
+            // Use -1 to indicate permanent lockout (requires device unlock to reset)
+            BiometricPrompt.ERROR_LOCKOUT_PERMANENT -> AppLockError.Lockout(durationSeconds = -1)
 
             BiometricPrompt.ERROR_TIMEOUT,
             BiometricPrompt.ERROR_UNABLE_TO_PROCESS,

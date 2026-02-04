@@ -135,7 +135,7 @@ class AppLockGateRobolectricTest : K9RobolectricTest() {
 
         override fun lockNow() = Unit
 
-        override fun ensureUnlocked(destination: Any?): Boolean = true
+        override fun ensureUnlocked(): Boolean = true
 
         override fun onSettingsChanged(config: AppLockConfig) {
             currentConfig = config
@@ -146,8 +146,6 @@ class AppLockGateRobolectricTest : K9RobolectricTest() {
         }
 
         override fun retry() = Unit
-
-        override fun consumePendingDestination(): Any? = null
 
         fun setConfigEnabled(enabled: Boolean) {
             currentConfig = currentConfig.copy(isEnabled = enabled)
