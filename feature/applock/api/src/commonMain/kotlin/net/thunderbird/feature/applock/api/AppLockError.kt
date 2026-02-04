@@ -31,9 +31,12 @@ sealed interface AppLockError {
     data object Interrupted : AppLockError
 
     /**
-     * Too many failed attempts, user is temporarily locked out.
+     * Too many failed attempts, user is locked out.
      *
-     * @property durationSeconds The duration of the lockout in seconds, or 0 if unknown.
+     * @property durationSeconds The duration of the lockout:
+     *   - `> 0`: Temporary lockout with known duration in seconds
+     *   - `== 0`: Temporary lockout with unknown duration
+     *   - `< 0`: Permanent lockout (user must unlock device with PIN/pattern/password to reset)
      */
     data class Lockout(val durationSeconds: Int) : AppLockError
 

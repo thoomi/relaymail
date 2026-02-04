@@ -121,7 +121,15 @@ internal class DefaultAppLockGate(
     }
 
     private fun showLockOverlay() {
-        if (lockOverlay != null) return
+        // Check if we already have a plain lock overlay (no children)
+        // If we have a failed overlay (with children), replace it
+        val existingOverlay = lockOverlay as? ViewGroup
+        if (existingOverlay != null && existingOverlay.childCount == 0) {
+            return // Already showing plain lock overlay
+        }
+
+        // Remove any existing overlay (e.g., failed overlay with error text)
+        hideLockOverlay()
 
         val contentView = activity.findViewById<ViewGroup>(android.R.id.content) ?: return
 

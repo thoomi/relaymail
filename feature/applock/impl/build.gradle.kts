@@ -32,5 +32,7 @@ dependencies {
     implementation(libs.koin.android)
 
     testImplementation(projects.core.testing)
+    testImplementation(projects.core.android.testing)
     testImplementation(projects.core.ui.compose.testing)
+    testImplementation(libs.androidx.test.core)
 }
