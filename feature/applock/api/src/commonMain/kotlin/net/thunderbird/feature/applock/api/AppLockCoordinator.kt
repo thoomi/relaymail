@@ -54,16 +54,15 @@ interface AppLockCoordinator {
     fun lockNow()
 
     /**
-     * Request unlock with optional destination for post-auth navigation.
+     * Request unlock.
      *
      * Call this from Activity.onResume() when state is not Unlocked/Disabled.
      * Transitions Locked/Failed → Unlocking if not already unlocking.
      *
-     * @param destination Optional destination for post-auth navigation (e.g., deep link Intent)
      * @return true if unlock was initiated or already unlocked/disabled,
      *         false if already unlocking (caller should wait, not show duplicate prompt)
      */
-    fun ensureUnlocked(destination: Any? = null): Boolean
+    fun ensureUnlocked(): Boolean
 
     /**
      * Update app lock configuration.
@@ -80,12 +79,4 @@ interface AppLockCoordinator {
      * Retry authentication after a failure.
      */
     fun retry()
-
-    /**
-     * Consume and return the pending destination, clearing it.
-     * Call this after successful authentication to navigate to the intended destination.
-     *
-     * @return The pending destination, or null if none was set.
-     */
-    fun consumePendingDestination(): Any?
 }

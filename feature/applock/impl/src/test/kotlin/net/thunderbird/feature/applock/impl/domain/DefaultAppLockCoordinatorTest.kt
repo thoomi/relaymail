@@ -112,43 +112,6 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `ensureUnlocked stores destination for post-auth navigation`() = runTest {
-        val coordinator = createCoordinator(
-            config = AppLockConfig(isEnabled = true),
-        )
-        val destination = "test://deep-link"
-
-        coordinator.ensureUnlocked(destination)
-
-        assertThat(coordinator.consumePendingDestination()).isEqualTo(destination)
-    }
-
-    @Test
-    fun `consumePendingDestination clears the destination`() = runTest {
-        val coordinator = createCoordinator(
-            config = AppLockConfig(isEnabled = true),
-        )
-        val destination = "test://deep-link"
-
-        coordinator.ensureUnlocked(destination)
-        coordinator.consumePendingDestination()
-
-        assertThat(coordinator.consumePendingDestination()).isNull()
-    }
-
-    @Test
-    fun `ensureUnlocked replaces pending destination with new one`() = runTest {
-        val coordinator = createCoordinator(
-            config = AppLockConfig(isEnabled = true),
-        )
-
-        coordinator.ensureUnlocked("first")
-        coordinator.ensureUnlocked("second")
-
-        assertThat(coordinator.consumePendingDestination()).isEqualTo("second")
-    }
-
-    @Test
     fun `ensureUnlocked transitions Failed to Unlocking`() = runTest {
         val coordinator = createCoordinator(
             config = AppLockConfig(isEnabled = true),
@@ -300,18 +263,6 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `lockNow clears pending destination`() = runTest {
-        val coordinator = createCoordinator(
-            config = AppLockConfig(isEnabled = true),
-        )
-
-        coordinator.ensureUnlocked("destination")
-        coordinator.lockNow()
-
-        assertThat(coordinator.consumePendingDestination()).isNull()
-    }
-
-    @Test
     fun `onSettingsChanged transitions to Locked when enabled`() = runTest {
         val coordinator = createCoordinator(
             config = AppLockConfig(isEnabled = false),
@@ -407,18 +358,6 @@ class DefaultAppLockCoordinatorTest {
         coordinator.onSettingsChanged(AppLockConfig(isEnabled = false))
 
         assertThat(coordinator.state.value).isEqualTo(AppLockState.Disabled)
-    }
-
-    @Test
-    fun `onSettingsChanged clears pending destination when disabled`() = runTest {
-        val coordinator = createCoordinator(
-            config = AppLockConfig(isEnabled = true),
-        )
-
-        coordinator.ensureUnlocked("destination")
-        coordinator.onSettingsChanged(AppLockConfig(isEnabled = false))
-
-        assertThat(coordinator.consumePendingDestination()).isNull()
     }
 
     @Test

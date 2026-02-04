@@ -38,7 +38,6 @@ internal class DefaultAppLockCoordinator(
     override val state: StateFlow<AppLockState> = _state.asStateFlow()
 
     private var nextAttemptId: Long = 0L
-    private var pendingDestination: Any? = null
 
     override val config: AppLockConfig
         get() = configRepository.getConfig()
@@ -74,7 +73,6 @@ internal class DefaultAppLockCoordinator(
         // to preserve user preference. App lock will re-enable when availability is restored.
         if (!currentConfig.isEnabled || !biometricAvailable) {
             _state.value = AppLockState.Disabled
-            pendingDestination = null
             return
         }
 
@@ -103,8 +101,9 @@ internal class DefaultAppLockCoordinator(
             is AppLockState.Unlocked -> {
                 _state.value = current.copy(lastHiddenAtMillis = clock())
             }
-            is AppLockState.Unlocking -> {
-                // Cancel unlock attempt when backgrounded
+            is AppLockState.Unlocking, is AppLockState.Failed -> {
+                // Cancel unlock attempt or clear failure when backgrounded
+                // This allows retry on next foreground
                 _state.value = AppLockState.Locked
             }
             else -> Unit
@@ -127,28 +126,21 @@ internal class DefaultAppLockCoordinator(
         val currentConfig = configRepository.getConfig()
         if (currentConfig.isEnabled && availability.isAuthenticationAvailable()) {
             _state.value = AppLockState.Locked
-            pendingDestination = null
         }
     }
 
-    override fun ensureUnlocked(destination: Any?): Boolean {
+    override fun ensureUnlocked(): Boolean {
         return when (_state.value) {
             AppLockState.Disabled, is AppLockState.Unlocked -> {
-                // Already unlocked - caller can navigate immediately, no need to store destination
+                // Already unlocked
                 true
             }
             is AppLockState.Unlocking -> {
-                // Already unlocking - update destination if provided, caller should not show duplicate prompt
-                if (destination != null) {
-                    pendingDestination = destination
-                }
+                // Already unlocking - caller should not show duplicate prompt
                 false
             }
             AppLockState.Locked, is AppLockState.Failed -> {
-                // Store destination for post-auth navigation, then transition to Unlocking
-                if (destination != null) {
-                    pendingDestination = destination
-                }
+                // Transition to Unlocking
                 _state.value = AppLockState.Unlocking(nextAttemptId++)
                 true
             }
@@ -161,7 +153,6 @@ internal class DefaultAppLockCoordinator(
 
         if (!config.isEnabled || !biometricAvailable) {
             _state.value = AppLockState.Disabled
-            pendingDestination = null
         } else {
             // Lock was enabled - require auth
             when (_state.value) {
@@ -209,12 +200,6 @@ internal class DefaultAppLockCoordinator(
         if (_state.value is AppLockState.Failed) {
             _state.value = AppLockState.Unlocking(nextAttemptId++)
         }
-    }
-
-    override fun consumePendingDestination(): Any? {
-        val destination = pendingDestination
-        pendingDestination = null
-        return destination
     }
 
     private fun computeInitialState(config: AppLockConfig, biometricAvailable: Boolean): AppLockState {

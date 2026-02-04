@@ -1,14 +1,15 @@
 package net.thunderbird.feature.applock.impl.ui
 
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.widget.FrameLayout
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import net.thunderbird.core.outcome.Outcome
 import net.thunderbird.feature.applock.api.AppLockCoordinator
@@ -41,11 +42,11 @@ internal class DefaultAppLockGate(
         // Start observing state changes to update overlay and trigger auth if needed
         stateObserverJob = activity.lifecycleScope.launch {
             coordinator.state.collect { state ->
-                // Update overlay visibility
-                if (state.isUnlocked()) {
-                    hideLockOverlay()
-                } else {
-                    showLockOverlay()
+                // Update overlay based on state
+                when {
+                    state.isUnlocked() -> hideLockOverlay()
+                    state is AppLockState.Failed -> showFailedOverlay(state.error)
+                    else -> showLockOverlay()
                 }
 
                 // Trigger authentication if activity is resumed and we're in a locked state
@@ -84,7 +85,7 @@ internal class DefaultAppLockGate(
                     launchAuthentication()
                 }
             }
-            AppLockState.Locked, is AppLockState.Failed -> {
+            AppLockState.Locked -> {
                 // Request unlock - coordinator will transition to Unlocking
                 if (coordinator.ensureUnlocked()) {
                     val newState = coordinator.state.value
@@ -93,6 +94,10 @@ internal class DefaultAppLockGate(
                         launchAuthentication()
                     }
                 }
+            }
+            is AppLockState.Failed -> {
+                // Don't auto-retry on failure to prevent infinite prompt loop.
+                // User can close app and reopen to retry. Overlay remains visible.
             }
             AppLockState.Disabled, is AppLockState.Unlocked -> {
                 // Nothing to do
@@ -120,10 +125,10 @@ internal class DefaultAppLockGate(
 
         val contentView = activity.findViewById<ViewGroup>(android.R.id.content) ?: return
 
-        val overlay = FrameLayout(activity).apply {
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT,
+        val overlay = LinearLayout(activity).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
             )
             setBackgroundColor(getThemeBackgroundColor())
             isFocusable = true
@@ -132,6 +137,71 @@ internal class DefaultAppLockGate(
 
         contentView.addView(overlay)
         lockOverlay = overlay
+    }
+
+    private fun showFailedOverlay(error: AppLockError) {
+        hideLockOverlay()
+
+        val contentView = activity.findViewById<ViewGroup>(android.R.id.content) ?: return
+
+        val overlay = LinearLayout(activity).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+            )
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setBackgroundColor(getThemeBackgroundColor())
+            isFocusable = true
+            isClickable = true
+
+            val errorMessage = TextView(activity).apply {
+                text = getErrorMessage(error)
+                textSize = 16f
+                gravity = Gravity.CENTER
+                setPadding(48, 16, 48, 16)
+            }
+            addView(errorMessage)
+
+            val retryButton = Button(activity).apply {
+                text = activity.getString(R.string.applock_button_unlock)
+                setOnClickListener { onRetryClicked() }
+            }
+            addView(retryButton)
+        }
+
+        contentView.addView(overlay)
+        lockOverlay = overlay
+    }
+
+    private fun onRetryClicked() {
+        if (coordinator.ensureUnlocked()) {
+            val newState = coordinator.state.value
+            if (newState is AppLockState.Unlocking) {
+                lastAttemptId = newState.attemptId
+                launchAuthentication()
+            }
+        }
+    }
+
+    private fun getErrorMessage(error: AppLockError): String {
+        return when (error) {
+            is AppLockError.NotAvailable -> activity.getString(R.string.applock_error_not_available)
+            is AppLockError.NotEnrolled -> activity.getString(R.string.applock_error_not_enrolled)
+            is AppLockError.Failed -> activity.getString(R.string.applock_error_failed)
+            is AppLockError.Canceled -> activity.getString(R.string.applock_error_canceled)
+            is AppLockError.Interrupted -> activity.getString(R.string.applock_error_failed)
+            is AppLockError.Lockout -> {
+                if (error.durationSeconds > 0) {
+                    activity.getString(R.string.applock_error_lockout, error.durationSeconds)
+                } else {
+                    activity.getString(R.string.applock_error_lockout_unknown)
+                }
+            }
+            is AppLockError.UnableToStart -> {
+                activity.getString(R.string.applock_error_unable_to_start, error.message)
+            }
+        }
     }
 
     private fun hideLockOverlay() {

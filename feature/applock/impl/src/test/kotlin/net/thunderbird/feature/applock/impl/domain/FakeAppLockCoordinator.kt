@@ -50,12 +50,8 @@ internal class FakeAppLockCoordinator(
     var lastSettings: AppLockConfig? = null
         private set
 
-    var lastEnsureUnlockedDestination: Any? = null
-        private set
-
     private var authDeferred: CompletableDeferred<AppLockResult>? = null
     private var nextAttemptId = 0L
-    private var _pendingDestination: Any? = null
 
     /**
      * Makes [authenticate] suspend until [completeAuthenticate] is called.
@@ -86,15 +82,10 @@ internal class FakeAppLockCoordinator(
     override fun lockNow() {
         lockNowCallCount++
         _state.value = AppLockState.Locked
-        _pendingDestination = null
     }
 
-    override fun ensureUnlocked(destination: Any?): Boolean {
+    override fun ensureUnlocked(): Boolean {
         ensureUnlockedCallCount++
-        lastEnsureUnlockedDestination = destination
-        if (destination != null) {
-            _pendingDestination = destination
-        }
 
         return when (_state.value) {
             AppLockState.Disabled, is AppLockState.Unlocked -> true
@@ -128,12 +119,6 @@ internal class FakeAppLockCoordinator(
         if (_state.value is AppLockState.Failed) {
             _state.value = AppLockState.Unlocking(attemptId = nextAttemptId++)
         }
-    }
-
-    override fun consumePendingDestination(): Any? {
-        val destination = _pendingDestination
-        _pendingDestination = null
-        return destination
     }
 
     fun setAuthResult(result: AppLockResult) {
