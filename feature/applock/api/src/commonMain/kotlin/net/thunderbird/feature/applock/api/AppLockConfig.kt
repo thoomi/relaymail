@@ -13,9 +13,9 @@ data class AppLockConfig(
 ) {
     companion object {
         /**
-         * Default: App lock is enabled.
+         * Default: App lock is disabled.
          */
-        const val DEFAULT_ENABLED = true
+        const val DEFAULT_ENABLED = false
 
         /**
          * Default timeout: 0 (immediate re-authentication required when returning from background).
