@@ -2,6 +2,7 @@ package net.thunderbird.feature.applock.impl.domain
 
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -184,6 +185,8 @@ internal class DefaultAppLockCoordinator(
 
         val result = try {
             authenticator.authenticate()
+        } catch (e: CancellationException) {
+            throw e // Rethrow to allow proper coroutine cancellation
         } catch (e: Exception) {
             Outcome.Failure(AppLockError.UnableToStart(e.message ?: "Unknown error"))
         }
