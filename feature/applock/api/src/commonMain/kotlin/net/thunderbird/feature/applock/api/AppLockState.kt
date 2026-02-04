@@ -5,9 +5,18 @@ package net.thunderbird.feature.applock.api
  */
 sealed interface AppLockState {
     /**
-     * App lock is disabled or unavailable - no authentication required.
+     * App lock is disabled by user preference - no authentication required.
      */
     data object Disabled : AppLockState
+
+    /**
+     * App lock is enabled but authentication is unavailable on this device.
+     * Access should be blocked and user should be shown guidance to set up credentials
+     * or disable app lock.
+     *
+     * @property reason Why authentication is unavailable.
+     */
+    data class Unavailable(val reason: UnavailableReason) : AppLockState
 
     /**
      * App lock is enabled and authentication is required.
@@ -26,10 +35,10 @@ sealed interface AppLockState {
     /**
      * User has successfully authenticated.
      *
-     * @property lastHiddenAtMillis Timestamp when app went to background, or null if visible.
+     * @property lastHiddenAtElapsedMillis Elapsed realtime when app went to background, or null if visible.
      */
     data class Unlocked(
-        val lastHiddenAtMillis: Long? = null,
+        val lastHiddenAtElapsedMillis: Long? = null,
     ) : AppLockState
 
     /**
@@ -41,7 +50,25 @@ sealed interface AppLockState {
 }
 
 /**
- * Check if the app is unlocked (authenticated or lock disabled).
+ * Reason why authentication is unavailable on this device.
+ */
+enum class UnavailableReason {
+    /**
+     * Device does not have biometric or credential hardware.
+     */
+    NO_HARDWARE,
+
+    /**
+     * User has not enrolled any biometrics or device credentials.
+     */
+    NOT_ENROLLED,
+}
+
+/**
+ * Check if the app is unlocked (authenticated or lock disabled by user).
+ *
+ * Note: [AppLockState.Unavailable] is NOT considered unlocked - it blocks access
+ * because lock was enabled but authentication became unavailable.
  */
 fun AppLockState.isUnlocked(): Boolean {
     return this is AppLockState.Unlocked || this is AppLockState.Disabled

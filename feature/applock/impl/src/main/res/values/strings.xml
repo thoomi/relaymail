@@ -21,6 +21,6 @@
     <string name="applock_error_lockout_permanent">Too many failed attempts. Please unlock your device using your PIN, pattern, or password.</string>
     <string name="applock_error_unable_to_start">Unable to start authentication: %s</string>
     <string name="applock_requirements_title">App Lock Unavailable</string>
-    <string name="applock_requirements_hint">To use App Lock, enable device credentials or biometrics in system settings.</string>
-    <string name="applock_button_disable">Disable App Lock</string>
+    <string name="applock_requirements_hint">Set up a screen lock (PIN, pattern, or password) in device settings to continue.</string>
+    <string name="applock_button_open_settings">Open Settings</string>
 </resources>

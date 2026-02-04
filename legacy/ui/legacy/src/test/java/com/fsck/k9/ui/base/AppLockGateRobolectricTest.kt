@@ -2,14 +2,17 @@ package com.fsck.k9.ui.base
 
 import android.os.Bundle
 import android.os.Looper
-import android.view.WindowManager
+import android.view.View
+import android.view.ViewGroup
 import android.widget.FrameLayout
-import androidx.fragment.app.FragmentActivity
+import android.widget.LinearLayout
 import assertk.assertThat
-import assertk.assertions.isEqualTo
+import assertk.assertions.isNotNull
+import assertk.assertions.isNull
 import com.fsck.k9.K9RobolectricTest
 import com.fsck.k9.controller.push.PushController
 import com.fsck.k9.ui.base.locale.SystemLocaleManager
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,9 +27,11 @@ import net.thunderbird.core.ui.theme.api.ThemeProvider
 import net.thunderbird.feature.applock.api.AppLockAuthenticator
 import net.thunderbird.feature.applock.api.AppLockConfig
 import net.thunderbird.feature.applock.api.AppLockCoordinator
+import net.thunderbird.feature.applock.api.AppLockError
 import net.thunderbird.feature.applock.api.AppLockGate
 import net.thunderbird.feature.applock.api.AppLockResult
 import net.thunderbird.feature.applock.api.AppLockState
+import net.thunderbird.feature.applock.impl.ui.DefaultAppLockGateFactory
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -58,7 +63,7 @@ class AppLockGateRobolectricTest : K9RobolectricTest() {
 
         testModule = module {
             single<AppLockCoordinator> { coordinator }
-            single<AppLockGate.Factory> { FakeAppLockGateFactory() }
+            single<AppLockGate.Factory> { DefaultAppLockGateFactory(coordinator) }
             single<ThemeProvider> { FakeThemeProvider() }
             single<ThemeManager> { FakeThemeManager() }
             single<PushController> { pushController }
@@ -74,41 +79,82 @@ class AppLockGateRobolectricTest : K9RobolectricTest() {
     }
 
     @Test
-    fun `FLAG_SECURE is not set when lock is enabled`() {
+    fun `shows lock overlay when state is Locked`() {
+        // Prevent immediate auth success from removing overlay
+        coordinator.suspendOnAuthenticate()
         coordinator.setConfigEnabled(true)
         coordinator.stateFlow.value = AppLockState.Locked
 
         val controller = Robolectric.buildActivity(TestGateActivity::class.java).setup()
+        shadowOf(Looper.getMainLooper()).idle()
 
-        val flags = controller.get().window.attributes.flags
-        assertThat(flags and WindowManager.LayoutParams.FLAG_SECURE).isEqualTo(0)
+        val activity = controller.get()
+        val overlay = findOverlay(activity)
+        assertThat(overlay).isNotNull()
     }
 
     @Test
-    fun `FLAG_SECURE is not set when lock is disabled`() {
+    fun `no overlay when lock is disabled`() {
         coordinator.setConfigEnabled(false)
         coordinator.stateFlow.value = AppLockState.Disabled
 
         val controller = Robolectric.buildActivity(TestGateActivity::class.java).setup()
+        shadowOf(Looper.getMainLooper()).idle()
 
-        val flags = controller.get().window.attributes.flags
-        assertThat(flags and WindowManager.LayoutParams.FLAG_SECURE).isEqualTo(0)
+        val activity = controller.get()
+        val overlay = findOverlay(activity)
+        assertThat(overlay).isNull()
     }
 
     @Test
-    fun `FLAG_SECURE is not set when state becomes unlocked`() {
+    fun `hides overlay when state becomes Unlocked`() {
+        // Prevent immediate auth success so we can verify overlay exists first
+        coordinator.suspendOnAuthenticate()
         coordinator.setConfigEnabled(true)
         coordinator.stateFlow.value = AppLockState.Locked
 
         val controller = Robolectric.buildActivity(TestGateActivity::class.java).setup()
         shadowOf(Looper.getMainLooper()).idle()
 
-        // Simulate unlock - Disabled is an unlocked state
+        // Verify overlay exists
+        assertThat(findOverlay(controller.get())).isNotNull()
+
+        // Change state to Unlocked
+        coordinator.stateFlow.value = AppLockState.Unlocked()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        val overlay = findOverlay(controller.get())
+        assertThat(overlay).isNull()
+    }
+
+    @Test
+    fun `hides overlay when state becomes Disabled`() {
+        // Prevent immediate auth success so we can verify overlay exists first
+        coordinator.suspendOnAuthenticate()
+        coordinator.setConfigEnabled(true)
+        coordinator.stateFlow.value = AppLockState.Locked
+
+        val controller = Robolectric.buildActivity(TestGateActivity::class.java).setup()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        // Verify overlay exists
+        assertThat(findOverlay(controller.get())).isNotNull()
+
+        // Change state to Disabled
         coordinator.stateFlow.value = AppLockState.Disabled
         shadowOf(Looper.getMainLooper()).idle()
 
-        val flags = controller.get().window.attributes.flags
-        assertThat(flags and WindowManager.LayoutParams.FLAG_SECURE).isEqualTo(0)
+        val overlay = findOverlay(controller.get())
+        assertThat(overlay).isNull()
+    }
+
+    private fun findOverlay(activity: TestGateActivity): View? {
+        val contentView = activity.findViewById<ViewGroup>(android.R.id.content)
+        for (i in contentView.childCount - 1 downTo 0) {
+            val child = contentView.getChildAt(i)
+            if (child is LinearLayout) return child
+        }
+        return null
     }
 
     private class TestGateActivity : BaseActivity() {
@@ -127,6 +173,10 @@ class AppLockGateRobolectricTest : K9RobolectricTest() {
             get() = currentConfig
         override val isAuthenticationAvailable: Boolean = true
 
+        private var authDeferred: CompletableDeferred<AppLockResult>? = null
+        private var authResult: AppLockResult = Outcome.Success(Unit)
+        private var nextAttemptId = 0L
+
         override fun onAppForegrounded() = Unit
 
         override fun onAppBackgrounded() = Unit
@@ -135,18 +185,47 @@ class AppLockGateRobolectricTest : K9RobolectricTest() {
 
         override fun lockNow() = Unit
 
-        override fun ensureUnlocked(): Boolean = true
+        override fun ensureUnlocked(): Boolean {
+            return when (stateFlow.value) {
+                AppLockState.Disabled, is AppLockState.Unlocked -> true
+                is AppLockState.Unlocking -> false
+                is AppLockState.Unavailable -> false
+                AppLockState.Locked, is AppLockState.Failed -> {
+                    stateFlow.value = AppLockState.Unlocking(attemptId = nextAttemptId++)
+                    true
+                }
+            }
+        }
 
         override fun onSettingsChanged(config: AppLockConfig) {
             currentConfig = config
         }
 
         override suspend fun authenticate(authenticator: AppLockAuthenticator): AppLockResult {
-            return Outcome.Success(Unit)
+            val unlocking = stateFlow.value as? AppLockState.Unlocking
+                ?: return Outcome.Failure(AppLockError.UnableToStart("Not in Unlocking state"))
+
+            val result = authDeferred?.await() ?: authResult
+            stateFlow.value = when (result) {
+                is Outcome.Success -> AppLockState.Unlocked()
+                is Outcome.Failure -> AppLockState.Failed(result.error)
+            }
+            return result
         }
 
         fun setConfigEnabled(enabled: Boolean) {
             currentConfig = currentConfig.copy(isEnabled = enabled)
+        }
+
+        /**
+         * Makes [authenticate] suspend until [completeAuthenticate] is called.
+         */
+        fun suspendOnAuthenticate() {
+            authDeferred = CompletableDeferred()
+        }
+
+        fun completeAuthenticate(result: AppLockResult) {
+            authDeferred?.complete(result)
         }
     }
 
@@ -181,11 +260,4 @@ class AppLockGateRobolectricTest : K9RobolectricTest() {
         override fun getConfigFlow(): Flow<DisplayCoreSettings> = flowOf(config)
     }
 
-    private class FakeAppLockGateFactory : AppLockGate.Factory {
-        override fun create(activity: FragmentActivity): AppLockGate {
-            return FakeAppLockGate()
-        }
-    }
-
-    private class FakeAppLockGate : AppLockGate
 }

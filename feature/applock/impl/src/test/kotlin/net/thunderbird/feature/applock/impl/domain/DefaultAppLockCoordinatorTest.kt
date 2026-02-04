@@ -4,13 +4,17 @@ import assertk.assertThat
 import assertk.assertions.isEqualTo
 import assertk.assertions.isFalse
 import assertk.assertions.isInstanceOf
-import assertk.assertions.isNull
 import assertk.assertions.isTrue
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import net.thunderbird.core.outcome.Outcome
+import net.thunderbird.feature.applock.api.AppLockAuthenticator
 import net.thunderbird.feature.applock.api.AppLockConfig
 import net.thunderbird.feature.applock.api.AppLockError
+import net.thunderbird.feature.applock.api.AppLockResult
 import net.thunderbird.feature.applock.api.AppLockState
+import net.thunderbird.feature.applock.api.UnavailableReason
+import net.thunderbird.feature.applock.api.isUnlocked
 import org.junit.Test
 
 class DefaultAppLockCoordinatorTest {
@@ -25,13 +29,14 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `cold start does not require auth when enabled but unavailable`() = runTest {
+    fun `cold start returns Unavailable when enabled but auth unavailable`() = runTest {
         val coordinator = createCoordinator(
             config = AppLockConfig(isEnabled = true),
             biometricAvailable = false,
+            unavailableReason = UnavailableReason.NOT_ENROLLED,
         )
 
-        assertThat(coordinator.state.value).isEqualTo(AppLockState.Disabled)
+        assertThat(coordinator.state.value).isEqualTo(AppLockState.Unavailable(UnavailableReason.NOT_ENROLLED))
     }
 
     @Test
@@ -46,15 +51,16 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `onAppForegrounded does nothing when auth is unavailable`() = runTest {
+    fun `onAppForegrounded transitions to Unavailable when auth is unavailable`() = runTest {
         val coordinator = createCoordinator(
             config = AppLockConfig(isEnabled = true),
             biometricAvailable = false,
+            unavailableReason = UnavailableReason.NO_HARDWARE,
         )
 
         coordinator.onAppForegrounded()
 
-        assertThat(coordinator.state.value).isEqualTo(AppLockState.Disabled)
+        assertThat(coordinator.state.value).isEqualTo(AppLockState.Unavailable(UnavailableReason.NO_HARDWARE))
     }
 
     @Test
@@ -380,13 +386,78 @@ class DefaultAppLockCoordinatorTest {
         assertThat(coordinator.state.value).isInstanceOf<AppLockState.Unlocked>()
     }
 
+    @Test
+    fun `ensureUnlocked returns false when Unavailable`() = runTest {
+        val coordinator = createCoordinator(
+            config = AppLockConfig(isEnabled = true),
+            biometricAvailable = false,
+            unavailableReason = UnavailableReason.NOT_ENROLLED,
+        )
+        assertThat(coordinator.state.value).isInstanceOf<AppLockState.Unavailable>()
+
+        val result = coordinator.ensureUnlocked()
+
+        assertThat(result).isFalse()
+        assertThat(coordinator.state.value).isInstanceOf<AppLockState.Unavailable>()
+    }
+
+    @Test
+    fun `isUnlocked returns false for Unavailable state`() = runTest {
+        val state = AppLockState.Unavailable(UnavailableReason.NOT_ENROLLED)
+
+        assertThat(state.isUnlocked()).isFalse()
+    }
+
+    @Test
+    fun `authenticate rejects concurrent calls`() = runTest {
+        val coordinator = createCoordinator(
+            config = AppLockConfig(isEnabled = true),
+        )
+
+        coordinator.ensureUnlocked()
+
+        // First call - use a suspending authenticator
+        val suspendingAuthenticator = SuspendingAuthenticator()
+        val firstJob = launch {
+            coordinator.authenticate(suspendingAuthenticator)
+        }
+
+        // Wait for first call to start
+        suspendingAuthenticator.awaitStarted()
+
+        // Second concurrent call should be rejected
+        val result = coordinator.authenticate(FakeAuthenticator.success())
+
+        assertThat(result).isEqualTo(
+            Outcome.Failure(AppLockError.UnableToStart("Authentication already in progress")),
+        )
+
+        // Complete first call
+        suspendingAuthenticator.complete(Outcome.Success(Unit))
+        firstJob.join()
+    }
+
+    private class SuspendingAuthenticator : AppLockAuthenticator {
+        private val started = kotlinx.coroutines.CompletableDeferred<Unit>()
+        private val result = kotlinx.coroutines.CompletableDeferred<AppLockResult>()
+
+        suspend fun awaitStarted() = started.await()
+        fun complete(value: AppLockResult) = result.complete(value)
+
+        override suspend fun authenticate(): AppLockResult {
+            started.complete(Unit)
+            return result.await()
+        }
+    }
+
     private fun createCoordinator(
         config: AppLockConfig,
         biometricAvailable: Boolean = true,
+        unavailableReason: UnavailableReason = UnavailableReason.NO_HARDWARE,
         clock: () -> Long = { System.currentTimeMillis() },
     ): DefaultAppLockCoordinator {
         val configRepository = InMemoryAppLockConfigRepository(config)
-        val availability = FakeAppLockAvailability(available = biometricAvailable)
+        val availability = FakeAppLockAvailability(available = biometricAvailable, reason = unavailableReason)
 
         return DefaultAppLockCoordinator(
             configRepository = configRepository,
@@ -407,7 +478,9 @@ class DefaultAppLockCoordinatorTest {
 
     private class FakeAppLockAvailability(
         private val available: Boolean,
+        private val reason: UnavailableReason = UnavailableReason.NO_HARDWARE,
     ) : AppLockAvailability {
         override fun isAuthenticationAvailable(): Boolean = available
+        override fun getUnavailableReason(): UnavailableReason = reason
     }
 }

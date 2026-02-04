@@ -1,5 +1,7 @@
 package net.thunderbird.feature.applock.impl.ui
 
+import android.content.Intent
+import android.provider.Settings
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -16,6 +18,7 @@ import net.thunderbird.feature.applock.api.AppLockCoordinator
 import net.thunderbird.feature.applock.api.AppLockError
 import net.thunderbird.feature.applock.api.AppLockGate
 import net.thunderbird.feature.applock.api.AppLockState
+import net.thunderbird.feature.applock.api.UnavailableReason
 import net.thunderbird.feature.applock.api.isUnlocked
 import net.thunderbird.feature.applock.impl.R
 import net.thunderbird.feature.applock.impl.domain.BiometricAuthenticator
@@ -36,6 +39,7 @@ internal class DefaultAppLockGate(
     private var lockOverlay: View? = null
     private var lastAttemptId: Long? = null
     private var stateObserverJob: Job? = null
+    private var authenticationJob: Job? = null
     private var isResumed: Boolean = false
 
     override fun onStart(owner: LifecycleOwner) {
@@ -46,6 +50,7 @@ internal class DefaultAppLockGate(
                 when {
                     state.isUnlocked() -> hideLockOverlay()
                     state is AppLockState.Failed -> showFailedOverlay(state.error)
+                    state is AppLockState.Unavailable -> showUnavailableOverlay(state.reason)
                     else -> showLockOverlay()
                 }
 
@@ -64,16 +69,22 @@ internal class DefaultAppLockGate(
 
     override fun onPause(owner: LifecycleOwner) {
         isResumed = false
+        authenticationJob?.cancel()
+        authenticationJob = null
     }
 
     override fun onStop(owner: LifecycleOwner) {
         stateObserverJob?.cancel()
         stateObserverJob = null
+        authenticationJob?.cancel()
+        authenticationJob = null
     }
 
     override fun onDestroy(owner: LifecycleOwner) {
         hideLockOverlay()
         lastAttemptId = null
+        authenticationJob?.cancel()
+        authenticationJob = null
     }
 
     private fun triggerAuthenticationIfNeeded() {
@@ -99,6 +110,9 @@ internal class DefaultAppLockGate(
                 // Don't auto-retry on failure to prevent infinite prompt loop.
                 // User can close app and reopen to retry. Overlay remains visible.
             }
+            is AppLockState.Unavailable -> {
+                // Auth unavailable - show guidance overlay, no auth to trigger
+            }
             AppLockState.Disabled, is AppLockState.Unlocked -> {
                 // Nothing to do
             }
@@ -106,16 +120,23 @@ internal class DefaultAppLockGate(
     }
 
     private fun launchAuthentication() {
+        // Don't launch if already in progress
+        if (authenticationJob?.isActive == true) return
+
         val authenticator = BiometricAuthenticator(
             activity = activity,
             title = activity.getString(R.string.applock_prompt_title),
             subtitle = activity.getString(R.string.applock_prompt_subtitle),
         )
 
-        activity.lifecycleScope.launch {
-            val result = coordinator.authenticate(authenticator)
-            if (result is Outcome.Failure && result.error is AppLockError.Canceled) {
-                activity.finishAffinity()
+        authenticationJob = activity.lifecycleScope.launch {
+            try {
+                val result = coordinator.authenticate(authenticator)
+                if (result is Outcome.Failure && result.error is AppLockError.Canceled) {
+                    activity.finishAffinity()
+                }
+            } finally {
+                authenticationJob = null
             }
         }
     }
@@ -180,6 +201,61 @@ internal class DefaultAppLockGate(
 
         contentView.addView(overlay)
         lockOverlay = overlay
+    }
+
+    private fun showUnavailableOverlay(reason: UnavailableReason) {
+        hideLockOverlay()
+
+        val contentView = activity.findViewById<ViewGroup>(android.R.id.content) ?: return
+
+        val overlay = LinearLayout(activity).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+            )
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setBackgroundColor(getThemeBackgroundColor())
+            isFocusable = true
+            isClickable = true
+
+            val titleView = TextView(activity).apply {
+                text = activity.getString(R.string.applock_requirements_title)
+                textSize = 20f
+                gravity = Gravity.CENTER
+                setPadding(48, 16, 48, 8)
+            }
+            addView(titleView)
+
+            val hintView = TextView(activity).apply {
+                text = getUnavailableHint(reason)
+                textSize = 16f
+                gravity = Gravity.CENTER
+                setPadding(48, 8, 48, 16)
+            }
+            addView(hintView)
+
+            val openSettingsButton = Button(activity).apply {
+                text = activity.getString(R.string.applock_button_open_settings)
+                setOnClickListener { openSecuritySettings() }
+            }
+            addView(openSettingsButton)
+        }
+
+        contentView.addView(overlay)
+        lockOverlay = overlay
+    }
+
+    private fun getUnavailableHint(reason: UnavailableReason): String {
+        return when (reason) {
+            UnavailableReason.NO_HARDWARE -> activity.getString(R.string.applock_error_not_available)
+            UnavailableReason.NOT_ENROLLED -> activity.getString(R.string.applock_requirements_hint)
+        }
+    }
+
+    private fun openSecuritySettings() {
+        val intent = Intent(Settings.ACTION_SECURITY_SETTINGS)
+        activity.startActivity(intent)
     }
 
     private fun onRetryClicked() {

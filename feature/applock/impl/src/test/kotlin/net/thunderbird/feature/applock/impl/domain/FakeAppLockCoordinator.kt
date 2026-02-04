@@ -90,6 +90,7 @@ internal class FakeAppLockCoordinator(
         return when (_state.value) {
             AppLockState.Disabled, is AppLockState.Unlocked -> true
             is AppLockState.Unlocking -> false
+            is AppLockState.Unavailable -> false
             AppLockState.Locked, is AppLockState.Failed -> {
                 _state.value = AppLockState.Unlocking(attemptId = nextAttemptId++)
                 true

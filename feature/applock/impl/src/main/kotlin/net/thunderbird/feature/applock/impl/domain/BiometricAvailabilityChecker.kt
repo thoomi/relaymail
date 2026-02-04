@@ -1,6 +1,7 @@
 package net.thunderbird.feature.applock.impl.domain
 
 import androidx.biometric.BiometricManager
+import net.thunderbird.feature.applock.api.UnavailableReason
 
 /**
  * Default implementation using Android's BiometricManager.
@@ -9,7 +10,18 @@ internal class DefaultBiometricAvailabilityChecker(
     private val biometricManager: BiometricManager,
 ) : AppLockAvailability {
 
+    private val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or
+        BiometricManager.Authenticators.BIOMETRIC_WEAK or
+        BiometricManager.Authenticators.DEVICE_CREDENTIAL
+
     override fun isAuthenticationAvailable(): Boolean {
         return BiometricAuthenticator.isAvailable(biometricManager)
+    }
+
+    override fun getUnavailableReason(): UnavailableReason {
+        return when (biometricManager.canAuthenticate(authenticators)) {
+            BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> UnavailableReason.NOT_ENROLLED
+            else -> UnavailableReason.NO_HARDWARE
+        }
     }
 }

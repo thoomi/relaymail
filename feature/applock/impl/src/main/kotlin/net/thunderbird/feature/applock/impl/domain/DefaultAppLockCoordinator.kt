@@ -1,11 +1,13 @@
 package net.thunderbird.feature.applock.impl.domain
 
+import android.os.SystemClock
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
 import net.thunderbird.core.outcome.Outcome
 import net.thunderbird.feature.applock.api.AppLockAuthenticator
 import net.thunderbird.feature.applock.api.AppLockConfig
@@ -31,13 +33,14 @@ internal class DefaultAppLockCoordinator(
     private val configRepository: AppLockConfigRepository,
     private val availability: AppLockAvailability,
     lifecycleHandler: AppLockLifecycleHandler? = null,
-    private val clock: () -> Long = { System.currentTimeMillis() },
+    private val clock: () -> Long = { SystemClock.elapsedRealtime() },
 ) : AppLockCoordinator, DefaultLifecycleObserver {
 
     private val _state = MutableStateFlow<AppLockState>(AppLockState.Disabled)
     override val state: StateFlow<AppLockState> = _state.asStateFlow()
 
     private var nextAttemptId: Long = 0L
+    private val authMutex = Mutex()
 
     override val config: AppLockConfig
         get() = configRepository.getConfig()
@@ -68,27 +71,31 @@ internal class DefaultAppLockCoordinator(
         val currentConfig = configRepository.getConfig()
         val biometricAvailable = availability.isAuthenticationAvailable()
 
-        // If disabled by user preference OR temporarily unavailable, set state to Disabled
-        // Note: We don't persist isEnabled=false when availability is temporarily unavailable
-        // to preserve user preference. App lock will re-enable when availability is restored.
-        if (!currentConfig.isEnabled || !biometricAvailable) {
+        // If disabled by user preference, set state to Disabled
+        if (!currentConfig.isEnabled) {
             _state.value = AppLockState.Disabled
+            return
+        }
+
+        // If enabled but auth unavailable, block access with Unavailable state
+        if (!biometricAvailable) {
+            _state.value = AppLockState.Unavailable(availability.getUnavailableReason())
             return
         }
 
         // Evaluate timeout for Unlocked state
         when (val current = _state.value) {
             is AppLockState.Unlocked -> {
-                val lastHiddenAt = current.lastHiddenAtMillis
+                val lastHiddenAt = current.lastHiddenAtElapsedMillis
                 if (lastHiddenAt != null && isTimeoutExceeded(lastHiddenAt, currentConfig.timeoutMillis)) {
                     _state.value = AppLockState.Locked
                 } else {
                     // Clear the hidden timestamp since we're back in foreground
-                    _state.value = current.copy(lastHiddenAtMillis = null)
+                    _state.value = current.copy(lastHiddenAtElapsedMillis = null)
                 }
             }
-            AppLockState.Disabled -> {
-                // Was disabled, now enabled - require auth
+            AppLockState.Disabled, is AppLockState.Unavailable -> {
+                // Was disabled/unavailable, now enabled and available - require auth
                 _state.value = AppLockState.Locked
             }
             // Locked, Unlocking, Failed - keep current state, UI will call ensureUnlocked
@@ -99,7 +106,7 @@ internal class DefaultAppLockCoordinator(
     override fun onAppBackgrounded() {
         when (val current = _state.value) {
             is AppLockState.Unlocked -> {
-                _state.value = current.copy(lastHiddenAtMillis = clock())
+                _state.value = current.copy(lastHiddenAtElapsedMillis = clock())
             }
             is AppLockState.Unlocking, is AppLockState.Failed -> {
                 // Cancel unlock attempt or clear failure when backgrounded
@@ -139,6 +146,10 @@ internal class DefaultAppLockCoordinator(
                 // Already unlocking - caller should not show duplicate prompt
                 false
             }
+            is AppLockState.Unavailable -> {
+                // Auth unavailable - cannot unlock, UI should show guidance
+                false
+            }
             AppLockState.Locked, is AppLockState.Failed -> {
                 // Transition to Unlocking
                 _state.value = AppLockState.Unlocking(nextAttemptId++)
@@ -151,12 +162,14 @@ internal class DefaultAppLockCoordinator(
         configRepository.setConfig(config)
         val biometricAvailable = availability.isAuthenticationAvailable()
 
-        if (!config.isEnabled || !biometricAvailable) {
+        if (!config.isEnabled) {
             _state.value = AppLockState.Disabled
+        } else if (!biometricAvailable) {
+            _state.value = AppLockState.Unavailable(availability.getUnavailableReason())
         } else {
             // Lock was enabled - require auth
             when (_state.value) {
-                AppLockState.Disabled -> {
+                AppLockState.Disabled, is AppLockState.Unavailable -> {
                     _state.value = AppLockState.Locked
                 }
                 // Keep other states as-is
@@ -167,38 +180,49 @@ internal class DefaultAppLockCoordinator(
 
     @Suppress("TooGenericExceptionCaught")
     override suspend fun authenticate(authenticator: AppLockAuthenticator): AppLockResult {
-        val unlocking = _state.value as? AppLockState.Unlocking
-            ?: return Outcome.Failure(AppLockError.UnableToStart("Not in Unlocking state"))
-
-        val result = try {
-            authenticator.authenticate()
-        } catch (e: CancellationException) {
-            throw e // Rethrow to allow proper coroutine cancellation
-        } catch (e: Exception) {
-            Outcome.Failure(AppLockError.UnableToStart(e.message ?: "Unknown error"))
+        // Single-flight: reject if already authenticating
+        if (!authMutex.tryLock()) {
+            return Outcome.Failure(AppLockError.UnableToStart("Authentication already in progress"))
         }
 
-        // Only apply result if attemptId still matches (guards against stale results)
-        if ((_state.value as? AppLockState.Unlocking)?.attemptId == unlocking.attemptId) {
-            _state.value = when (result) {
-                is Outcome.Success -> AppLockState.Unlocked(lastHiddenAtMillis = null)
-                is Outcome.Failure -> {
-                    // System interruptions (rotation, backgrounding) go back to Locked
-                    if (result.error is AppLockError.Interrupted) {
-                        AppLockState.Locked
-                    } else {
-                        AppLockState.Failed(result.error)
+        try {
+            val unlocking = _state.value as? AppLockState.Unlocking
+                ?: return Outcome.Failure(AppLockError.UnableToStart("Not in Unlocking state"))
+
+            val result = try {
+                authenticator.authenticate()
+            } catch (e: CancellationException) {
+                throw e // Rethrow to allow proper coroutine cancellation
+            } catch (e: Exception) {
+                Outcome.Failure(AppLockError.UnableToStart(e.message ?: "Unknown error"))
+            }
+
+            // Only apply result if attemptId still matches (guards against stale results)
+            if ((_state.value as? AppLockState.Unlocking)?.attemptId == unlocking.attemptId) {
+                _state.value = when (result) {
+                    is Outcome.Success -> AppLockState.Unlocked(lastHiddenAtElapsedMillis = null)
+                    is Outcome.Failure -> {
+                        // System interruptions (rotation, backgrounding) go back to Locked
+                        if (result.error is AppLockError.Interrupted) {
+                            AppLockState.Locked
+                        } else {
+                            AppLockState.Failed(result.error)
+                        }
                     }
                 }
             }
-        }
 
-        return result
+            return result
+        } finally {
+            authMutex.unlock()
+        }
     }
 
     private fun computeInitialState(config: AppLockConfig, biometricAvailable: Boolean): AppLockState {
-        return if (!config.isEnabled || !biometricAvailable) {
+        return if (!config.isEnabled) {
             AppLockState.Disabled
+        } else if (!biometricAvailable) {
+            AppLockState.Unavailable(availability.getUnavailableReason())
         } else {
             AppLockState.Locked
         }
