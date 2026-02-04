@@ -137,22 +137,23 @@ internal class DefaultAppLockCoordinator(
     }
 
     override fun ensureUnlocked(destination: Any?): Boolean {
-        // Store destination for post-auth navigation
-        if (destination != null) {
-            pendingDestination = destination
-        }
-
         return when (_state.value) {
             AppLockState.Disabled, is AppLockState.Unlocked -> {
-                // Already unlocked
+                // Already unlocked - caller can navigate immediately, no need to store destination
                 true
             }
             is AppLockState.Unlocking -> {
-                // Already unlocking - caller should not show duplicate prompt
+                // Already unlocking - update destination if provided, caller should not show duplicate prompt
+                if (destination != null) {
+                    pendingDestination = destination
+                }
                 false
             }
             AppLockState.Locked, is AppLockState.Failed -> {
-                // Transition to Unlocking
+                // Store destination for post-auth navigation, then transition to Unlocking
+                if (destination != null) {
+                    pendingDestination = destination
+                }
                 _state.value = AppLockState.Unlocking(nextAttemptId++)
                 true
             }
