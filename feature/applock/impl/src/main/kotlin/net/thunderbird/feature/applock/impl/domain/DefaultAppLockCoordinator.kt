@@ -69,14 +69,9 @@ internal class DefaultAppLockCoordinator(
         val currentConfig = configRepository.getConfig()
         val biometricAvailable = availability.isAuthenticationAvailable()
 
-        // Auto-disable if biometric became unavailable
-        if (currentConfig.isEnabled && !biometricAvailable) {
-            configRepository.setConfig(currentConfig.copy(isEnabled = false))
-            _state.value = AppLockState.Disabled
-            pendingDestination = null
-            return
-        }
-
+        // If disabled by user preference OR temporarily unavailable, set state to Disabled
+        // Note: We don't persist isEnabled=false when availability is temporarily unavailable
+        // to preserve user preference. App lock will re-enable when availability is restored.
         if (!currentConfig.isEnabled || !biometricAvailable) {
             _state.value = AppLockState.Disabled
             pendingDestination = null
