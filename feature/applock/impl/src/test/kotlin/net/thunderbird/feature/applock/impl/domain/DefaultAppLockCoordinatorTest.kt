@@ -361,7 +361,7 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `retry transitions from Failed to Unlocking`() = runTest {
+    fun `ensureUnlocked after failure allows successful authentication`() = runTest {
         val coordinator = createCoordinator(
             config = AppLockConfig(isEnabled = true),
         )
@@ -370,37 +370,8 @@ class DefaultAppLockCoordinatorTest {
         coordinator.authenticate(FakeAuthenticator.failure(AppLockError.Failed))
         assertThat(coordinator.state.value).isEqualTo(AppLockState.Failed(AppLockError.Failed))
 
-        coordinator.retry()
-
-        assertThat(coordinator.state.value).isInstanceOf<AppLockState.Unlocking>()
-    }
-
-    @Test
-    fun `retry does nothing when not in Failed state`() = runTest {
-        val coordinator = createCoordinator(
-            config = AppLockConfig(isEnabled = true),
-        )
-
-        // State is Locked, not Failed
-        assertThat(coordinator.state.value).isEqualTo(AppLockState.Locked)
-
-        coordinator.retry()
-
-        // State should still be Locked
-        assertThat(coordinator.state.value).isEqualTo(AppLockState.Locked)
-    }
-
-    @Test
-    fun `retry after failure allows successful authentication`() = runTest {
-        val coordinator = createCoordinator(
-            config = AppLockConfig(isEnabled = true),
-        )
-
+        // ensureUnlocked transitions Failed -> Unlocking
         coordinator.ensureUnlocked()
-        coordinator.authenticate(FakeAuthenticator.failure(AppLockError.Failed))
-        assertThat(coordinator.state.value).isEqualTo(AppLockState.Failed(AppLockError.Failed))
-
-        coordinator.retry()
         assertThat(coordinator.state.value).isInstanceOf<AppLockState.Unlocking>()
 
         val result = coordinator.authenticate(FakeAuthenticator.success())

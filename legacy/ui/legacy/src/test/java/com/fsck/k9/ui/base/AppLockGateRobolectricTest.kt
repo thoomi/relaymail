@@ -145,8 +145,6 @@ class AppLockGateRobolectricTest : K9RobolectricTest() {
             return Outcome.Success(Unit)
         }
 
-        override fun retry() = Unit
-
         fun setConfigEnabled(enabled: Boolean) {
             currentConfig = currentConfig.copy(isEnabled = enabled)
         }

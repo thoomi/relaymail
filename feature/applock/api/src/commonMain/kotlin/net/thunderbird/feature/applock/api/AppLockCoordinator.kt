@@ -74,9 +74,4 @@ interface AppLockCoordinator {
      * Call this when state is [AppLockState.Unlocking].
      */
     suspend fun authenticate(authenticator: AppLockAuthenticator): AppLockResult
-
-    /**
-     * Retry authentication after a failure.
-     */
-    fun retry()
 }

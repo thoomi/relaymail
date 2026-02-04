@@ -51,6 +51,8 @@ class DefaultAppLockGateTest {
     @Test
     fun `shows plain overlay when state is Locked`() {
         coordinator.setState(AppLockState.Locked)
+        // Prevent immediate auth success from removing overlay
+        coordinator.suspendOnAuthenticate()
 
         scenario = ActivityScenario.launch(TestActivity::class.java)
         scenario.onActivity { activity ->
@@ -143,6 +145,8 @@ class DefaultAppLockGateTest {
     @Test
     fun `retry button calls ensureUnlocked`() {
         coordinator.setState(AppLockState.Failed(AppLockError.Failed))
+        // Prevent immediate auth success after retry
+        coordinator.suspendOnAuthenticate()
 
         scenario = ActivityScenario.launch(TestActivity::class.java)
         scenario.onActivity { activity ->
@@ -168,6 +172,8 @@ class DefaultAppLockGateTest {
     @Test
     fun `replaces failed overlay with plain overlay when state changes to Locked`() {
         coordinator.setState(AppLockState.Failed(AppLockError.Failed))
+        // Prevent immediate auth success when state changes to Locked
+        coordinator.suspendOnAuthenticate()
 
         scenario = ActivityScenario.launch(TestActivity::class.java)
         scenario.onActivity { activity ->
@@ -198,6 +204,8 @@ class DefaultAppLockGateTest {
     @Test
     fun `hides overlay when state becomes Unlocked`() {
         coordinator.setState(AppLockState.Locked)
+        // Prevent immediate auth success so we can verify overlay exists first
+        coordinator.suspendOnAuthenticate()
 
         scenario = ActivityScenario.launch(TestActivity::class.java)
         scenario.onActivity { activity ->
@@ -225,6 +233,8 @@ class DefaultAppLockGateTest {
     @Test
     fun `hides overlay when state becomes Disabled`() {
         coordinator.setState(AppLockState.Locked)
+        // Prevent immediate auth success so we can verify overlay exists first
+        coordinator.suspendOnAuthenticate()
 
         scenario = ActivityScenario.launch(TestActivity::class.java)
         scenario.onActivity { activity ->

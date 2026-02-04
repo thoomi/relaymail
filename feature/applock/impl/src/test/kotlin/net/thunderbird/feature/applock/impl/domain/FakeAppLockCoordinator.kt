@@ -115,12 +115,6 @@ internal class FakeAppLockCoordinator(
         return result
     }
 
-    override fun retry() {
-        if (_state.value is AppLockState.Failed) {
-            _state.value = AppLockState.Unlocking(attemptId = nextAttemptId++)
-        }
-    }
-
     fun setAuthResult(result: AppLockResult) {
         authResult = result
     }

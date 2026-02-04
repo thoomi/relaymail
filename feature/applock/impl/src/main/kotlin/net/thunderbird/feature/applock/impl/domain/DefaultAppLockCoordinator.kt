@@ -196,12 +196,6 @@ internal class DefaultAppLockCoordinator(
         return result
     }
 
-    override fun retry() {
-        if (_state.value is AppLockState.Failed) {
-            _state.value = AppLockState.Unlocking(nextAttemptId++)
-        }
-    }
-
     private fun computeInitialState(config: AppLockConfig, biometricAvailable: Boolean): AppLockState {
         return if (!config.isEnabled || !biometricAvailable) {
             AppLockState.Disabled
