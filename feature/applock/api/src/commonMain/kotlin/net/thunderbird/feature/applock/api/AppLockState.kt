@@ -12,7 +12,6 @@ sealed interface AppLockState {
     /**
      * App lock is enabled but authentication is unavailable on this device.
      * Access should be blocked and user should be shown guidance to set up credentials
-     * or disable app lock.
      *
      * @property reason Why authentication is unavailable.
      */
