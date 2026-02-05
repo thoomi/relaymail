@@ -189,6 +189,47 @@ class DefaultAppLockGateTest {
         assertThat(findOverlay(activity)).isNull()
     }
 
+    @Test
+    fun `auth relaunches after pause-resume while Unlocking`() {
+        // Suspend authentication so we can control the flow
+        coordinator.suspendOnAuthenticate()
+
+        val controller = launchActivity(AppLockState.Locked)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        val initialAuthCount = coordinator.authenticateCallCount
+
+        // Pause and resume - should relaunch auth since it was interrupted
+        controller.pause()
+        shadowOf(Looper.getMainLooper()).idle()
+        controller.resume()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        // Auth should have been relaunched
+        assertThat(coordinator.authenticateCallCount).isEqualTo(initialAuthCount + 1)
+    }
+
+    @Test
+    fun `no duplicate auth on pause-resume when auth already completed`() {
+        // Let auth complete immediately
+        val controller = launchActivity(AppLockState.Locked)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        val authCountAfterUnlock = coordinator.authenticateCallCount
+
+        // State should be Unlocked after successful auth
+        assertThat(coordinator.state.value).isInstanceOf<AppLockState.Unlocked>()
+
+        // Pause and resume
+        controller.pause()
+        shadowOf(Looper.getMainLooper()).idle()
+        controller.resume()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        // No additional auth calls since already unlocked
+        assertThat(coordinator.authenticateCallCount).isEqualTo(authCountAfterUnlock)
+    }
+
     private fun findOverlay(activity: FragmentActivity): android.view.View? {
         val contentView = activity.findViewById<ViewGroup>(android.R.id.content)
         // The overlay is added as the last child of the content view

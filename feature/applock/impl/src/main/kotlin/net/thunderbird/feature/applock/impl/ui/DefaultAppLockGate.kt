@@ -64,13 +64,22 @@ internal class DefaultAppLockGate(
 
     override fun onResume(owner: LifecycleOwner) {
         isResumed = true
+
+        // Refresh availability in case user set up authentication in Settings
+        if (coordinator.state.value is AppLockState.Unavailable) {
+            coordinator.refreshAvailability()
+        }
+
         triggerAuthenticationIfNeeded()
     }
 
     override fun onPause(owner: LifecycleOwner) {
         isResumed = false
-        authenticationJob?.cancel()
-        authenticationJob = null
+        if (authenticationJob?.isActive == true) {
+            authenticationJob?.cancel()
+            authenticationJob = null
+            lastAttemptId = null // Allow relaunch on resume
+        }
     }
 
     override fun onStop(owner: LifecycleOwner) {

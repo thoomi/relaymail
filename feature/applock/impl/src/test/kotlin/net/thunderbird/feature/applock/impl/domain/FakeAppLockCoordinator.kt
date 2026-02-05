@@ -47,6 +47,9 @@ internal class FakeAppLockCoordinator(
     var authenticateCallCount = 0
         private set
 
+    var refreshAvailabilityCallCount = 0
+        private set
+
     var lastSettings: AppLockConfig? = null
         private set
 
@@ -101,6 +104,10 @@ internal class FakeAppLockCoordinator(
     override fun onSettingsChanged(config: AppLockConfig) {
         lastSettings = config
         _config = config
+    }
+
+    override fun refreshAvailability() {
+        refreshAvailabilityCallCount++
     }
 
     override suspend fun authenticate(authenticator: AppLockAuthenticator): AppLockResult {

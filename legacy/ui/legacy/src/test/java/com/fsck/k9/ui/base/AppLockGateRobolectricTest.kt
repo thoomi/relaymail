@@ -217,6 +217,8 @@ class AppLockGateRobolectricTest : K9RobolectricTest() {
             return result
         }
 
+        override fun refreshAvailability() = Unit
+
         fun setConfigEnabled(enabled: Boolean) {
             currentConfig = currentConfig.copy(isEnabled = enabled)
         }

@@ -74,4 +74,10 @@ interface AppLockCoordinator {
      * Call this when state is [AppLockState.Unlocking].
      */
     suspend fun authenticate(authenticator: AppLockAuthenticator): AppLockResult
+
+    /**
+     * Re-check authentication availability after returning from device settings.
+     * Transitions Unavailable -> Locked if auth is now available.
+     */
+    fun refreshAvailability()
 }

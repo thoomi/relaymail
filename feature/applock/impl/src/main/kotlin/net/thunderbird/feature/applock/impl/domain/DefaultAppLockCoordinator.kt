@@ -178,6 +178,22 @@ internal class DefaultAppLockCoordinator(
         }
     }
 
+    override fun refreshAvailability() {
+        val currentConfig = configRepository.getConfig()
+        val biometricAvailable = availability.isAuthenticationAvailable()
+
+        when (_state.value) {
+            is AppLockState.Unavailable -> {
+                if (biometricAvailable && currentConfig.isEnabled) {
+                    _state.value = AppLockState.Locked
+                } else if (!currentConfig.isEnabled) {
+                    _state.value = AppLockState.Disabled
+                }
+            }
+            else -> Unit
+        }
+    }
+
     @Suppress("TooGenericExceptionCaught")
     override suspend fun authenticate(authenticator: AppLockAuthenticator): AppLockResult {
         // Single-flight: reject if already authenticating

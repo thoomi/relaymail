@@ -437,6 +437,55 @@ class DefaultAppLockCoordinatorTest {
         firstJob.join()
     }
 
+    @Test
+    fun `refreshAvailability transitions Unavailable to Locked when auth available`() = runTest {
+        val availability = MutableAppLockAvailability(available = false, reason = UnavailableReason.NOT_ENROLLED)
+        val coordinator = createCoordinatorWithMutableAvailability(
+            config = AppLockConfig(isEnabled = true),
+            availability = availability,
+        )
+
+        assertThat(coordinator.state.value).isEqualTo(AppLockState.Unavailable(UnavailableReason.NOT_ENROLLED))
+
+        // User sets up authentication in device settings
+        availability.setAvailable(true)
+        coordinator.refreshAvailability()
+
+        assertThat(coordinator.state.value).isEqualTo(AppLockState.Locked)
+    }
+
+    @Test
+    fun `refreshAvailability does nothing when not in Unavailable state`() = runTest {
+        val coordinator = createCoordinator(
+            config = AppLockConfig(isEnabled = true),
+        )
+
+        assertThat(coordinator.state.value).isEqualTo(AppLockState.Locked)
+
+        coordinator.refreshAvailability()
+
+        // State should remain Locked
+        assertThat(coordinator.state.value).isEqualTo(AppLockState.Locked)
+    }
+
+    @Test
+    fun `refreshAvailability transitions to Disabled when lock is disabled`() = runTest {
+        val configRepository = MutableAppLockConfigRepository(AppLockConfig(isEnabled = true))
+        val availability = MutableAppLockAvailability(available = false, reason = UnavailableReason.NOT_ENROLLED)
+        val coordinator = DefaultAppLockCoordinator(
+            configRepository = configRepository,
+            availability = availability,
+        )
+
+        assertThat(coordinator.state.value).isEqualTo(AppLockState.Unavailable(UnavailableReason.NOT_ENROLLED))
+
+        // User disabled app lock while in unavailable state
+        configRepository.setConfig(AppLockConfig(isEnabled = false))
+        coordinator.refreshAvailability()
+
+        assertThat(coordinator.state.value).isEqualTo(AppLockState.Disabled)
+    }
+
     private class SuspendingAuthenticator : AppLockAuthenticator {
         private val started = kotlinx.coroutines.CompletableDeferred<Unit>()
         private val result = kotlinx.coroutines.CompletableDeferred<AppLockResult>()
@@ -482,5 +531,41 @@ class DefaultAppLockCoordinatorTest {
     ) : AppLockAvailability {
         override fun isAuthenticationAvailable(): Boolean = available
         override fun getUnavailableReason(): UnavailableReason = reason
+    }
+
+    private class MutableAppLockAvailability(
+        private var available: Boolean,
+        private var reason: UnavailableReason = UnavailableReason.NO_HARDWARE,
+    ) : AppLockAvailability {
+        fun setAvailable(available: Boolean) {
+            this.available = available
+        }
+
+        override fun isAuthenticationAvailable(): Boolean = available
+        override fun getUnavailableReason(): UnavailableReason = reason
+    }
+
+    private class MutableAppLockConfigRepository(
+        private var config: AppLockConfig,
+    ) : AppLockConfigRepository {
+        override fun getConfig(): AppLockConfig = config
+
+        override fun setConfig(config: AppLockConfig) {
+            this.config = config
+        }
+    }
+
+    private fun createCoordinatorWithMutableAvailability(
+        config: AppLockConfig,
+        availability: MutableAppLockAvailability,
+        clock: () -> Long = { System.currentTimeMillis() },
+    ): DefaultAppLockCoordinator {
+        val configRepository = InMemoryAppLockConfigRepository(config)
+
+        return DefaultAppLockCoordinator(
+            configRepository = configRepository,
+            availability = availability,
+            clock = clock,
+        )
     }
 }
