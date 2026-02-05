@@ -12,7 +12,7 @@
 
     <!-- Error Messages -->
     <string name="applock_error_title">Unlock Failed</string>
-    <string name="applock_error_not_available">Device authentication is not available on this device.</string>
+    <string name="applock_error_not_available">Device authentication is not available on this device. App lock stays active, so Thunderbird can't be opened here.</string>
     <string name="applock_error_not_enrolled">No biometric credentials or screen lock set up. Please set up a screen lock in device settings.</string>
     <string name="applock_error_failed">Authentication failed. Please try again.</string>
     <string name="applock_error_canceled">Authentication was canceled.</string>
@@ -26,4 +26,5 @@
     <string name="applock_requirements_hint">Set up a screen lock (PIN, pattern, or password) in device settings to continue.</string>
     <string name="applock_button_open_settings">Open Settings</string>
     <string name="applock_button_try_again">Try again</string>
+    <string name="applock_button_close_app">Close App</string>
 </resources>

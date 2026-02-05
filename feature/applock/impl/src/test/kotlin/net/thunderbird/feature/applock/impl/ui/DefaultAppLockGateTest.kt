@@ -15,6 +15,7 @@ import assertk.assertions.isEqualTo
 import assertk.assertions.isInstanceOf
 import assertk.assertions.isNotNull
 import assertk.assertions.isNull
+import assertk.assertions.isTrue
 import net.thunderbird.feature.applock.api.AppLockError
 import net.thunderbird.feature.applock.api.AppLockState
 import net.thunderbird.feature.applock.api.UnavailableReason
@@ -299,13 +300,35 @@ class DefaultAppLockGateTest {
     }
 
     @Test
-    fun `no hardware unavailable shows no action button`() {
+    fun `no hardware unavailable shows close app button only`() {
         val controller = launchActivity(AppLockState.Unavailable(UnavailableReason.NO_HARDWARE))
         val activity = controller.get()
 
         val overlay = findOverlay(activity) as? ViewGroup
         assertThat(overlay).isNotNull()
-        assertThat(overlay!!.childCount).isEqualTo(2)
+        assertThat(overlay!!.childCount).isEqualTo(3)
+
+        val closeButton = overlay.getChildAt(2) as? Button
+        assertThat(closeButton).isNotNull()
+        assertThat(closeButton!!.text.toString()).isEqualTo(activity.getString(R.string.applock_button_close_app))
+    }
+
+    @Test
+    fun `unavailable overlay shows close app button and closes app`() {
+        val controller = launchActivity(AppLockState.Unavailable(UnavailableReason.NO_HARDWARE))
+        val activity = controller.get()
+
+        val overlay = findOverlay(activity) as? ViewGroup
+        assertThat(overlay).isNotNull()
+
+        val closeButton = overlay!!.getChildAt(2) as? Button
+        assertThat(closeButton).isNotNull()
+        assertThat(closeButton!!.text.toString()).isEqualTo(activity.getString(R.string.applock_button_close_app))
+
+        closeButton.performClick()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertThat(activity.isFinishing).isTrue()
     }
 
     @Test

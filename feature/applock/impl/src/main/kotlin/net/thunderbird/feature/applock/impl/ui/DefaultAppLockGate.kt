@@ -271,6 +271,12 @@ internal class DefaultAppLockGate(
             }
 
             actionButton?.let { addView(it) }
+
+            val closeButton = Button(activity).apply {
+                text = activity.getString(R.string.applock_button_close_app)
+                setOnClickListener { activity.finishAffinity() }
+            }
+            addView(closeButton)
         }
 
         contentView.addView(overlay)
