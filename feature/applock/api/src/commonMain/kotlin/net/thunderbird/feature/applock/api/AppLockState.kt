@@ -35,9 +35,11 @@ sealed interface AppLockState {
      * User has successfully authenticated.
      *
      * @property lastHiddenAtElapsedMillis Elapsed realtime when app went to background, or null if visible.
+     * @property externalIntentExemptionExpiresAt Elapsed realtime when external intent exemption expires, or null.
      */
     data class Unlocked(
         val lastHiddenAtElapsedMillis: Long? = null,
+        val externalIntentExemptionExpiresAt: Long? = null,
     ) : AppLockState
 
     /**

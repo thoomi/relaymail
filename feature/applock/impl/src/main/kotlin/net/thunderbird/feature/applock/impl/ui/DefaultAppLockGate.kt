@@ -71,10 +71,22 @@ internal class DefaultAppLockGate(
         }
 
         triggerAuthenticationIfNeeded()
+
+        // Hide privacy overlay if still unlocked (for quick pause/resume)
+        // Done after triggerAuthenticationIfNeeded to avoid ordering flicker
+        if (coordinator.state.value.isUnlocked()) {
+            hideLockOverlay()
+        }
     }
 
     override fun onPause(owner: LifecycleOwner) {
         isResumed = false
+
+        // Show privacy overlay to obscure content in task switcher
+        if (coordinator.config.isEnabled && coordinator.state.value.isUnlocked()) {
+            showLockOverlay()
+        }
+
         if (authenticationJob?.isActive == true) {
             authenticationJob?.cancel()
             authenticationJob = null

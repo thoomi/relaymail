@@ -80,4 +80,16 @@ interface AppLockCoordinator {
      * Transitions Unavailable -> Locked if auth is now available.
      */
     fun refreshAvailability()
+
+    /**
+     * Notify that the app is about to launch an external intent.
+     * Grants a grace period for returning without re-authentication.
+     * Call BEFORE launching the external intent.
+     */
+    fun onExternalIntentLaunching()
+
+    /**
+     * Check if there is an active external intent exemption.
+     */
+    val hasExternalIntentExemption: Boolean
 }

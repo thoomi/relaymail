@@ -308,6 +308,73 @@ class DefaultAppLockGateTest {
         assertThat(overlay!!.childCount).isEqualTo(2)
     }
 
+    @Test
+    fun `shows privacy overlay when paused and app lock is enabled`() {
+        coordinator.setConfigEnabled(true)
+        val controller = launchActivity(AppLockState.Unlocked())
+        val activity = controller.get()
+
+        // Verify no overlay when unlocked and in foreground
+        assertThat(findOverlay(activity)).isNull()
+
+        // Pause the activity
+        controller.pause()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        // Privacy overlay should be shown
+        assertThat(findOverlay(activity)).isNotNull()
+    }
+
+    @Test
+    fun `no privacy overlay when paused and app lock is disabled`() {
+        coordinator.setConfigEnabled(false)
+        val controller = launchActivity(AppLockState.Disabled)
+        val activity = controller.get()
+
+        // Pause the activity
+        controller.pause()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        // No overlay should be shown (app lock disabled)
+        assertThat(findOverlay(activity)).isNull()
+    }
+
+    @Test
+    fun `hides privacy overlay when resumed while still unlocked`() {
+        coordinator.setConfigEnabled(true)
+        val controller = launchActivity(AppLockState.Unlocked())
+        val activity = controller.get()
+
+        // Pause - shows privacy overlay
+        controller.pause()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertThat(findOverlay(activity)).isNotNull()
+
+        // Resume - hides privacy overlay since still unlocked
+        controller.resume()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertThat(findOverlay(activity)).isNull()
+    }
+
+    @Test
+    fun `no privacy overlay when paused while Unlocking`() {
+        coordinator.setConfigEnabled(true)
+        coordinator.suspendOnAuthenticate()
+        val controller = launchActivity(AppLockState.Locked)
+        val activity = controller.get()
+
+        // Should be in Unlocking state with lock overlay showing
+        assertThat(coordinator.state.value).isInstanceOf<AppLockState.Unlocking>()
+        assertThat(findOverlay(activity)).isNotNull()
+
+        // Pause while Unlocking - should keep existing lock overlay, not switch to privacy behavior
+        controller.pause()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        // Overlay should still be present (lock overlay, not privacy overlay)
+        assertThat(findOverlay(activity)).isNotNull()
+    }
+
     private fun findOverlay(activity: FragmentActivity): android.view.View? {
         val contentView = activity.findViewById<ViewGroup>(android.R.id.content)
         // The overlay is added as the last child of the content view

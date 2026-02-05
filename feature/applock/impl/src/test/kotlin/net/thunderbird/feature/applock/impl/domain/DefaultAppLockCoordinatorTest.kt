@@ -486,6 +486,145 @@ class DefaultAppLockCoordinatorTest {
         assertThat(coordinator.state.value).isEqualTo(AppLockState.Disabled)
     }
 
+    @Test
+    fun `onExternalIntentLaunching sets exemption when unlocked`() = runTest {
+        var now = 100_000L
+        val coordinator = createCoordinator(
+            config = AppLockConfig(isEnabled = true),
+            clock = { now },
+        )
+
+        // Unlock
+        coordinator.ensureUnlocked()
+        coordinator.authenticate(FakeAuthenticator.success())
+        assertThat(coordinator.state.value).isInstanceOf<AppLockState.Unlocked>()
+
+        assertThat(coordinator.hasExternalIntentExemption).isFalse()
+
+        coordinator.onExternalIntentLaunching()
+
+        assertThat(coordinator.hasExternalIntentExemption).isTrue()
+    }
+
+    @Test
+    fun `onExternalIntentLaunching does nothing when locked`() = runTest {
+        val coordinator = createCoordinator(
+            config = AppLockConfig(isEnabled = true),
+        )
+
+        assertThat(coordinator.state.value).isEqualTo(AppLockState.Locked)
+
+        coordinator.onExternalIntentLaunching()
+
+        assertThat(coordinator.hasExternalIntentExemption).isFalse()
+        assertThat(coordinator.state.value).isEqualTo(AppLockState.Locked)
+    }
+
+    @Test
+    fun `external intent exemption allows return without re-auth`() = runTest {
+        var now = 100_000L
+        val coordinator = createCoordinator(
+            config = AppLockConfig(isEnabled = true, timeoutMillis = 0L),
+            clock = { now },
+        )
+
+        // Unlock
+        coordinator.ensureUnlocked()
+        coordinator.authenticate(FakeAuthenticator.success())
+        assertThat(coordinator.state.value).isInstanceOf<AppLockState.Unlocked>()
+
+        // Mark external intent and go to background
+        coordinator.onExternalIntentLaunching()
+        coordinator.onAppBackgrounded()
+        now += 1000L // Advance time past zero timeout
+
+        // Return from external intent
+        coordinator.onAppForegrounded()
+
+        // Should stay unlocked due to exemption
+        assertThat(coordinator.state.value).isInstanceOf<AppLockState.Unlocked>()
+    }
+
+    @Test
+    fun `external intent exemption is consumed after foreground`() = runTest {
+        var now = 100_000L
+        val coordinator = createCoordinator(
+            config = AppLockConfig(isEnabled = true, timeoutMillis = 0L),
+            clock = { now },
+        )
+
+        // Unlock
+        coordinator.ensureUnlocked()
+        coordinator.authenticate(FakeAuthenticator.success())
+
+        // Mark external intent and go to background
+        coordinator.onExternalIntentLaunching()
+        coordinator.onAppBackgrounded()
+        now += 1000L
+
+        // Return from external intent - exemption consumed
+        coordinator.onAppForegrounded()
+        assertThat(coordinator.state.value).isInstanceOf<AppLockState.Unlocked>()
+        assertThat(coordinator.hasExternalIntentExemption).isFalse()
+
+        // Background again without marking external intent
+        coordinator.onAppBackgrounded()
+        now += 1000L
+
+        // Now should lock - no exemption
+        coordinator.onAppForegrounded()
+        assertThat(coordinator.state.value).isEqualTo(AppLockState.Locked)
+    }
+
+    @Test
+    fun `external intent exemption expires after grace period`() = runTest {
+        var now = 100_000L
+        val coordinator = createCoordinator(
+            config = AppLockConfig(isEnabled = true, timeoutMillis = 0L),
+            clock = { now },
+        )
+
+        // Unlock
+        coordinator.ensureUnlocked()
+        coordinator.authenticate(FakeAuthenticator.success())
+
+        // Mark external intent and go to background
+        coordinator.onExternalIntentLaunching()
+        coordinator.onAppBackgrounded()
+
+        // Advance time past grace period (5 minutes = 300,000ms)
+        now += 6 * 60 * 1000L // 6 minutes
+
+        // Return from external intent
+        coordinator.onAppForegrounded()
+
+        // Should lock - exemption expired
+        assertThat(coordinator.state.value).isEqualTo(AppLockState.Locked)
+    }
+
+    @Test
+    fun `screen off clears external intent exemption`() = runTest {
+        var now = 100_000L
+        val coordinator = createCoordinator(
+            config = AppLockConfig(isEnabled = true),
+            clock = { now },
+        )
+
+        // Unlock
+        coordinator.ensureUnlocked()
+        coordinator.authenticate(FakeAuthenticator.success())
+
+        // Mark external intent
+        coordinator.onExternalIntentLaunching()
+        assertThat(coordinator.hasExternalIntentExemption).isTrue()
+
+        // Screen off should lock and clear exemption
+        coordinator.onScreenOff()
+
+        assertThat(coordinator.state.value).isEqualTo(AppLockState.Locked)
+        assertThat(coordinator.hasExternalIntentExemption).isFalse()
+    }
+
     private class SuspendingAuthenticator : AppLockAuthenticator {
         private val started = kotlinx.coroutines.CompletableDeferred<Unit>()
         private val result = kotlinx.coroutines.CompletableDeferred<AppLockResult>()

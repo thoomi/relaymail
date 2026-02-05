@@ -50,6 +50,13 @@ internal class FakeAppLockCoordinator(
     var refreshAvailabilityCallCount = 0
         private set
 
+    var onExternalIntentLaunchingCallCount = 0
+        private set
+
+    private var _hasExternalIntentExemption = false
+    override val hasExternalIntentExemption: Boolean
+        get() = _hasExternalIntentExemption
+
     var lastSettings: AppLockConfig? = null
         private set
 
@@ -112,6 +119,13 @@ internal class FakeAppLockCoordinator(
         stateAfterRefresh?.let { _state.value = it }
     }
 
+    override fun onExternalIntentLaunching() {
+        onExternalIntentLaunchingCallCount++
+        if (_state.value is AppLockState.Unlocked) {
+            _hasExternalIntentExemption = true
+        }
+    }
+
     override suspend fun authenticate(authenticator: AppLockAuthenticator): AppLockResult {
         authenticateCallCount++
         val unlocking = _state.value as? AppLockState.Unlocking
@@ -135,6 +149,14 @@ internal class FakeAppLockCoordinator(
 
     fun setStateAfterRefresh(state: AppLockState?) {
         stateAfterRefresh = state
+    }
+
+    fun setConfigEnabled(enabled: Boolean) {
+        _config = _config.copy(isEnabled = enabled)
+    }
+
+    fun setHasExternalIntentExemption(hasExemption: Boolean) {
+        _hasExternalIntentExemption = hasExemption
     }
 
     companion object {

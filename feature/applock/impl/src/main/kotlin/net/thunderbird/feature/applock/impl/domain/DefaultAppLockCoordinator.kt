@@ -37,6 +37,10 @@ internal class DefaultAppLockCoordinator(
 ) : AppLockCoordinator, DefaultLifecycleObserver {
 
     private val _state = MutableStateFlow<AppLockState>(AppLockState.Disabled)
+
+    companion object {
+        private const val EXTERNAL_INTENT_GRACE_PERIOD_MILLIS = 5 * 60 * 1000L // 5 minutes
+    }
     override val state: StateFlow<AppLockState> = _state.asStateFlow()
 
     private var nextAttemptId: Long = 0L
@@ -47,6 +51,13 @@ internal class DefaultAppLockCoordinator(
 
     override val isAuthenticationAvailable: Boolean
         get() = availability.isAuthenticationAvailable()
+
+    override val hasExternalIntentExemption: Boolean
+        get() {
+            val current = _state.value as? AppLockState.Unlocked ?: return false
+            val expiresAt = current.externalIntentExemptionExpiresAt ?: return false
+            return clock() < expiresAt
+        }
 
     init {
         // Initialize state based on current config (cold start)
@@ -87,11 +98,25 @@ internal class DefaultAppLockCoordinator(
         when (val current = _state.value) {
             is AppLockState.Unlocked -> {
                 val lastHiddenAt = current.lastHiddenAtElapsedMillis
-                if (lastHiddenAt != null && isTimeoutExceeded(lastHiddenAt, currentConfig.timeoutMillis)) {
+                val externalExemptionExpiresAt = current.externalIntentExemptionExpiresAt
+
+                // Check for valid external intent exemption first
+                val hasValidExemption = externalExemptionExpiresAt != null && clock() < externalExemptionExpiresAt
+
+                if (hasValidExemption) {
+                    // Exemption is valid - consume it (single-use) and stay unlocked
+                    _state.value = current.copy(
+                        lastHiddenAtElapsedMillis = null,
+                        externalIntentExemptionExpiresAt = null,
+                    )
+                } else if (lastHiddenAt != null && isTimeoutExceeded(lastHiddenAt, currentConfig.timeoutMillis)) {
                     _state.value = AppLockState.Locked
                 } else {
                     // Clear the hidden timestamp since we're back in foreground
-                    _state.value = current.copy(lastHiddenAtElapsedMillis = null)
+                    _state.value = current.copy(
+                        lastHiddenAtElapsedMillis = null,
+                        externalIntentExemptionExpiresAt = null,
+                    )
                 }
             }
             AppLockState.Disabled, is AppLockState.Unavailable -> {
@@ -189,6 +214,17 @@ internal class DefaultAppLockCoordinator(
                 } else if (!currentConfig.isEnabled) {
                     _state.value = AppLockState.Disabled
                 }
+            }
+            else -> Unit
+        }
+    }
+
+    override fun onExternalIntentLaunching() {
+        when (val current = _state.value) {
+            is AppLockState.Unlocked -> {
+                _state.value = current.copy(
+                    externalIntentExemptionExpiresAt = clock() + EXTERNAL_INTENT_GRACE_PERIOD_MILLIS,
+                )
             }
             else -> Unit
         }
