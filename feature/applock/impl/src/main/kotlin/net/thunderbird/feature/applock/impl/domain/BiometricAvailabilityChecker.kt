@@ -21,7 +21,9 @@ internal class DefaultBiometricAvailabilityChecker(
     override fun getUnavailableReason(): UnavailableReason {
         return when (biometricManager.canAuthenticate(authenticators)) {
             BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> UnavailableReason.NOT_ENROLLED
-            else -> UnavailableReason.NO_HARDWARE
+            BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE -> UnavailableReason.NO_HARDWARE
+            BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> UnavailableReason.TEMPORARILY_UNAVAILABLE
+            else -> UnavailableReason.UNKNOWN
         }
     }
 }

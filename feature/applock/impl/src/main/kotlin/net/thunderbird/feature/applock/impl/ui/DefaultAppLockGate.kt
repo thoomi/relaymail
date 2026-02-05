@@ -244,11 +244,21 @@ internal class DefaultAppLockGate(
             }
             addView(hintView)
 
-            val openSettingsButton = Button(activity).apply {
-                text = activity.getString(R.string.applock_button_open_settings)
-                setOnClickListener { openSecuritySettings() }
+            val actionButton = when (reason) {
+                UnavailableReason.NOT_ENROLLED -> Button(activity).apply {
+                    text = activity.getString(R.string.applock_button_open_settings)
+                    setOnClickListener { openSecuritySettings() }
+                }
+                UnavailableReason.TEMPORARILY_UNAVAILABLE,
+                UnavailableReason.UNKNOWN,
+                -> Button(activity).apply {
+                    text = activity.getString(R.string.applock_button_try_again)
+                    setOnClickListener { onUnavailableRetryClicked() }
+                }
+                UnavailableReason.NO_HARDWARE -> null
             }
-            addView(openSettingsButton)
+
+            actionButton?.let { addView(it) }
         }
 
         contentView.addView(overlay)
@@ -259,6 +269,10 @@ internal class DefaultAppLockGate(
         return when (reason) {
             UnavailableReason.NO_HARDWARE -> activity.getString(R.string.applock_error_not_available)
             UnavailableReason.NOT_ENROLLED -> activity.getString(R.string.applock_requirements_hint)
+            UnavailableReason.TEMPORARILY_UNAVAILABLE -> {
+                activity.getString(R.string.applock_error_temporarily_unavailable)
+            }
+            UnavailableReason.UNKNOWN -> activity.getString(R.string.applock_error_unknown_unavailable)
         }
     }
 
@@ -271,6 +285,13 @@ internal class DefaultAppLockGate(
         // Just request unlock - the state collector will observe the transition
         // to Unlocking and trigger authentication via triggerAuthenticationIfNeeded()
         coordinator.ensureUnlocked()
+    }
+
+    private fun onUnavailableRetryClicked() {
+        coordinator.refreshAvailability()
+        if (coordinator.state.value == AppLockState.Locked) {
+            coordinator.ensureUnlocked()
+        }
     }
 
     private fun getErrorMessage(error: AppLockError): String {

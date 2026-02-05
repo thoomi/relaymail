@@ -61,6 +61,17 @@ enum class UnavailableReason {
      * User has not enrolled any biometrics or device credentials.
      */
     NOT_ENROLLED,
+
+    /**
+     * Authentication hardware is temporarily unavailable.
+     * Usually resolves without user setup changes.
+     */
+    TEMPORARILY_UNAVAILABLE,
+
+    /**
+     * Authentication is unavailable for an unknown reason.
+     */
+    UNKNOWN,
 }
 
 /**

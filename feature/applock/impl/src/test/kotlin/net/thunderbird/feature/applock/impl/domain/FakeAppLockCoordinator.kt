@@ -55,6 +55,7 @@ internal class FakeAppLockCoordinator(
 
     private var authDeferred: CompletableDeferred<AppLockResult>? = null
     private var nextAttemptId = 0L
+    private var stateAfterRefresh: AppLockState? = null
 
     /**
      * Makes [authenticate] suspend until [completeAuthenticate] is called.
@@ -108,6 +109,7 @@ internal class FakeAppLockCoordinator(
 
     override fun refreshAvailability() {
         refreshAvailabilityCallCount++
+        stateAfterRefresh?.let { _state.value = it }
     }
 
     override suspend fun authenticate(authenticator: AppLockAuthenticator): AppLockResult {
@@ -129,6 +131,10 @@ internal class FakeAppLockCoordinator(
 
     fun setState(state: AppLockState) {
         _state.value = state
+    }
+
+    fun setStateAfterRefresh(state: AppLockState?) {
+        stateAfterRefresh = state
     }
 
     companion object {

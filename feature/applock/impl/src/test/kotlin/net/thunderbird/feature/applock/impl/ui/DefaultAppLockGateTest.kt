@@ -17,6 +17,8 @@ import assertk.assertions.isNotNull
 import assertk.assertions.isNull
 import net.thunderbird.feature.applock.api.AppLockError
 import net.thunderbird.feature.applock.api.AppLockState
+import net.thunderbird.feature.applock.api.UnavailableReason
+import net.thunderbird.feature.applock.impl.R
 import net.thunderbird.feature.applock.impl.domain.FakeAppLockCoordinator
 import org.junit.Before
 import org.junit.Test
@@ -228,6 +230,82 @@ class DefaultAppLockGateTest {
 
         // No additional auth calls since already unlocked
         assertThat(coordinator.authenticateCallCount).isEqualTo(authCountAfterUnlock)
+    }
+
+    @Test
+    fun `shows temporary unavailable hint when auth hardware is unavailable`() {
+        val controller = launchActivity(AppLockState.Unavailable(UnavailableReason.TEMPORARILY_UNAVAILABLE))
+        val activity = controller.get()
+
+        val overlay = findOverlay(activity) as? ViewGroup
+        assertThat(overlay).isNotNull()
+
+        val hintText = overlay!!.getChildAt(1) as? TextView
+        assertThat(hintText).isNotNull()
+        assertThat(hintText!!.text.toString()).contains("temporarily unavailable")
+    }
+
+    @Test
+    fun `temporary unavailable shows retry button and refreshes availability`() {
+        val controller = launchActivity(AppLockState.Unavailable(UnavailableReason.TEMPORARILY_UNAVAILABLE))
+        val activity = controller.get()
+
+        val overlay = findOverlay(activity) as? ViewGroup
+        assertThat(overlay).isNotNull()
+
+        val retryButton = overlay!!.getChildAt(2) as? Button
+        assertThat(retryButton).isNotNull()
+        assertThat(
+            retryButton!!.text.toString(),
+        ).isEqualTo(activity.getString(R.string.applock_button_try_again))
+
+        val initialRefreshCalls = coordinator.refreshAvailabilityCallCount
+        retryButton.performClick()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertThat(coordinator.refreshAvailabilityCallCount).isEqualTo(initialRefreshCalls + 1)
+    }
+
+    @Test
+    fun `retry from unavailable requests unlock when refresh transitions to locked`() {
+        val controller = launchActivity(AppLockState.Unavailable(UnavailableReason.UNKNOWN))
+        val activity = controller.get()
+
+        val overlay = findOverlay(activity) as? ViewGroup
+        assertThat(overlay).isNotNull()
+
+        val retryButton = overlay!!.getChildAt(2) as? Button
+        assertThat(retryButton).isNotNull()
+
+        coordinator.setStateAfterRefresh(AppLockState.Locked)
+        val initialEnsureUnlockedCalls = coordinator.ensureUnlockedCallCount
+        retryButton!!.performClick()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertThat(coordinator.ensureUnlockedCallCount).isEqualTo(initialEnsureUnlockedCalls + 1)
+    }
+
+    @Test
+    fun `shows unknown unavailable hint when reason is unknown`() {
+        val controller = launchActivity(AppLockState.Unavailable(UnavailableReason.UNKNOWN))
+        val activity = controller.get()
+
+        val overlay = findOverlay(activity) as? ViewGroup
+        assertThat(overlay).isNotNull()
+
+        val hintText = overlay!!.getChildAt(1) as? TextView
+        assertThat(hintText).isNotNull()
+        assertThat(hintText!!.text.toString()).contains("Unable to determine")
+    }
+
+    @Test
+    fun `no hardware unavailable shows no action button`() {
+        val controller = launchActivity(AppLockState.Unavailable(UnavailableReason.NO_HARDWARE))
+        val activity = controller.get()
+
+        val overlay = findOverlay(activity) as? ViewGroup
+        assertThat(overlay).isNotNull()
+        assertThat(overlay!!.childCount).isEqualTo(2)
     }
 
     private fun findOverlay(activity: FragmentActivity): android.view.View? {
