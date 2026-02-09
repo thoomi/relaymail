@@ -8,6 +8,7 @@ import net.thunderbird.feature.applock.impl.domain.DefaultAppLockCoordinator
 import net.thunderbird.feature.applock.impl.domain.DefaultAppLockLifecycleHandler
 import net.thunderbird.feature.applock.impl.domain.DefaultBiometricAvailabilityChecker
 import net.thunderbird.feature.applock.impl.ui.DefaultAppLockGateFactory
+import net.thunderbird.core.ui.theme.api.FeatureThemeProvider
 import org.koin.android.ext.koin.androidApplication
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.Module
@@ -55,6 +56,7 @@ val featureAppLockModule: Module = module {
     single<AppLockGate.Factory> {
         DefaultAppLockGateFactory(
             coordinator = get(),
+            themeProvider = get<FeatureThemeProvider>(),
         )
     }
 }

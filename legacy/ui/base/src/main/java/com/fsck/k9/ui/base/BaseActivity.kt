@@ -24,6 +24,7 @@ import net.thunderbird.core.ui.theme.api.Theme
 import net.thunderbird.core.ui.theme.manager.ThemeManager
 import net.thunderbird.feature.applock.api.AppLockGate
 import org.koin.android.ext.android.inject
+import org.koin.java.KoinJavaComponent.getKoin
 
 abstract class BaseActivity(
     private val themeType: ThemeType,
@@ -33,7 +34,9 @@ abstract class BaseActivity(
     private val pushController: PushController by inject()
     protected val themeManager: ThemeManager by inject()
     private val appLanguageManager: AppLanguageManager by inject()
-    private val appLockGateFactory: AppLockGate.Factory by inject()
+    private val appLockGateFactory: AppLockGate.Factory? by lazy {
+        runCatching<AppLockGate.Factory> { getKoin().get(AppLockGate.Factory::class) }.getOrNull()
+    }
 
     private var overrideLocaleOnLaunch: Locale? = null
 
@@ -64,7 +67,9 @@ abstract class BaseActivity(
     }
 
     private fun setupAppLock() {
-        lifecycle.addObserver(appLockGateFactory.create(this))
+        appLockGateFactory?.let { gateFactory ->
+            lifecycle.addObserver(gateFactory.create(this))
+        }
     }
 
     // On Android 12+ the layout direction doesn't seem to be updated when recreating the activity. This is a problem

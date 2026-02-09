@@ -1,18 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- App Lock Screen -->
-    <string name="applock_title">App Locked</string>
-    <string name="applock_subtitle">Please authenticate to access Thunderbird</string>
     <string name="applock_button_unlock">Unlock</string>
-    <string name="applock_loading_message">Authenticating…</string>
 
     <!-- Biometric Prompt -->
-    <string name="applock_prompt_title">Unlock Thunderbird</string>
+    <string name="applock_prompt_title">Unlock app</string>
     <string name="applock_prompt_subtitle">Authenticate to access your email</string>
 
     <!-- Error Messages -->
     <string name="applock_error_title">Unlock Failed</string>
-    <string name="applock_error_not_available">Device authentication is not available on this device. App lock stays active, so Thunderbird cannot be opened here.</string>
+    <string name="applock_error_not_available">Device authentication is not available on this device. App lock stays active, so this app cannot be opened here.</string>
     <string name="applock_error_not_enrolled">No biometric credentials or screen lock set up. Please set up a screen lock in device settings.</string>
     <string name="applock_error_failed">Authentication failed. Please try again.</string>
     <string name="applock_error_canceled">Authentication was canceled.</string>

@@ -2,6 +2,7 @@ package net.thunderbird.feature.applock.impl.ui
 
 import android.content.Intent
 import android.graphics.Color
+import android.net.Uri
 import android.provider.Settings
 import android.util.TypedValue
 import android.view.View
@@ -10,10 +11,10 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
-import app.k9mail.core.ui.compose.theme2.thunderbird.ThunderbirdTheme2
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import net.thunderbird.core.outcome.Outcome
+import net.thunderbird.core.ui.theme.api.FeatureThemeProvider
 import net.thunderbird.feature.applock.api.AppLockCoordinator
 import net.thunderbird.feature.applock.api.AppLockError
 import net.thunderbird.feature.applock.api.AppLockGate
@@ -37,6 +38,7 @@ private const val OVERLAY_TAG_CONTENT = "applock_overlay_content"
 internal class DefaultAppLockGate(
     private val activity: FragmentActivity,
     private val coordinator: AppLockCoordinator,
+    private val themeProvider: FeatureThemeProvider,
 ) : AppLockGate {
 
     private var lockOverlay: View? = null
@@ -228,7 +230,7 @@ internal class DefaultAppLockGate(
             isFocusable = true
             isClickable = true
             setContent {
-                ThunderbirdTheme2 {
+                themeProvider.WithTheme {
                     AppLockFailedOverlay(
                         errorMessage = getErrorMessage(error),
                         onRetryClick = ::onRetryClicked,
@@ -272,7 +274,7 @@ internal class DefaultAppLockGate(
             isFocusable = true
             isClickable = true
             setContent {
-                ThunderbirdTheme2 {
+                themeProvider.WithTheme {
                     AppLockUnavailableOverlay(
                         hintMessage = getUnavailableHint(reason),
                         actionButtonText = actionButtonText,
@@ -299,8 +301,25 @@ internal class DefaultAppLockGate(
     }
 
     private fun openSecuritySettings() {
-        val intent = Intent(Settings.ACTION_SECURITY_SETTINGS)
-        activity.startActivity(intent)
+        val securityIntent = Intent(Settings.ACTION_SECURITY_SETTINGS)
+        if (securityIntent.resolveActivity(activity.packageManager) != null) {
+            activity.startActivity(securityIntent)
+            return
+        }
+
+        val generalSettingsIntent = Intent(Settings.ACTION_SETTINGS)
+        if (generalSettingsIntent.resolveActivity(activity.packageManager) != null) {
+            activity.startActivity(generalSettingsIntent)
+            return
+        }
+
+        val appSettingsIntent = Intent(
+            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.fromParts("package", activity.packageName, null),
+        )
+        if (appSettingsIntent.resolveActivity(activity.packageManager) != null) {
+            activity.startActivity(appSettingsIntent)
+        }
     }
 
     private fun onRetryClicked() {
@@ -358,8 +377,13 @@ internal class DefaultAppLockGate(
  */
 internal class DefaultAppLockGateFactory(
     private val coordinator: AppLockCoordinator,
+    private val themeProvider: FeatureThemeProvider,
 ) : AppLockGate.Factory {
     override fun create(activity: FragmentActivity): AppLockGate {
-        return DefaultAppLockGate(activity, coordinator)
+        return DefaultAppLockGate(
+            activity = activity,
+            coordinator = coordinator,
+            themeProvider = themeProvider,
+        )
     }
 }

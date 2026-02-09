@@ -126,17 +126,28 @@ internal class FakeAppLockCoordinator(
         }
     }
 
+    private var isAuthenticating = false
+
     override suspend fun authenticate(authenticator: AppLockAuthenticator): AppLockResult {
+        if (isAuthenticating) {
+            return Outcome.Failure(AppLockError.UnableToStart("Authentication already in progress"))
+        }
+
         authenticateCallCount++
         val unlocking = _state.value as? AppLockState.Unlocking
             ?: return Outcome.Failure(AppLockError.UnableToStart("Not in Unlocking state"))
 
-        val result = authDeferred?.await() ?: authResult
-        _state.value = when (result) {
-            is Outcome.Success -> AppLockState.Unlocked()
-            is Outcome.Failure -> AppLockState.Failed(result.error)
+        isAuthenticating = true
+        try {
+            val result = authDeferred?.await() ?: authResult
+            _state.value = when (result) {
+                is Outcome.Success -> AppLockState.Unlocked()
+                is Outcome.Failure -> AppLockState.Failed(result.error)
+            }
+            return result
+        } finally {
+            isAuthenticating = false
         }
-        return result
     }
 
     fun setAuthResult(result: AppLockResult) {
