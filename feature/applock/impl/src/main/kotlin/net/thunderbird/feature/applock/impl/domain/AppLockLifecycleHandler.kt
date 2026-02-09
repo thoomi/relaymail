@@ -12,4 +12,9 @@ internal interface AppLockLifecycleHandler {
      * The [onScreenOff] callback is invoked when screen turns off.
      */
     fun register(observer: DefaultLifecycleObserver, onScreenOff: () -> Unit)
+
+    /**
+     * Unregister the lifecycle observer and screen-off receiver.
+     */
+    fun unregister()
 }

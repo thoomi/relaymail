@@ -17,22 +17,38 @@ internal class DefaultAppLockLifecycleHandler(
     private val application: Application,
 ) : AppLockLifecycleHandler {
 
+    private var screenOffReceiver: BroadcastReceiver? = null
+    private var lifecycleObserver: DefaultLifecycleObserver? = null
+
     override fun register(observer: DefaultLifecycleObserver, onScreenOff: () -> Unit) {
+        // Clean up any previous registration to make this idempotent
+        unregister()
+
+        lifecycleObserver = observer
         ProcessLifecycleOwner.get().lifecycle.addObserver(observer)
 
-        val screenOffReceiver = object : BroadcastReceiver() {
+        val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 if (intent?.action == Intent.ACTION_SCREEN_OFF) {
                     onScreenOff()
                 }
             }
         }
+        screenOffReceiver = receiver
 
         ContextCompat.registerReceiver(
             application,
-            screenOffReceiver,
+            receiver,
             IntentFilter(Intent.ACTION_SCREEN_OFF),
             ContextCompat.RECEIVER_NOT_EXPORTED,
         )
+    }
+
+    override fun unregister() {
+        screenOffReceiver?.let { application.unregisterReceiver(it) }
+        screenOffReceiver = null
+
+        lifecycleObserver?.let { ProcessLifecycleOwner.get().lifecycle.removeObserver(it) }
+        lifecycleObserver = null
     }
 }

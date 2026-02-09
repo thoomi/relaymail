@@ -84,7 +84,7 @@ internal class DefaultAppLockGate(
         isResumed = false
 
         // Show privacy overlay to obscure content in task switcher
-        if (coordinator.config.isEnabled && coordinator.state.value.isUnlocked()) {
+        if (coordinator.config.isEnabled) {
             showLockOverlay()
         }
 
@@ -145,6 +145,9 @@ internal class DefaultAppLockGate(
         // Don't launch if already in progress
         if (authenticationJob?.isActive == true) return
 
+        // Don't launch if another activity already started authentication
+        if (coordinator.state.value !is AppLockState.Unlocking) return
+
         val authenticator = BiometricAuthenticator(
             activity = activity,
             title = activity.getString(R.string.applock_prompt_title),
@@ -154,9 +157,8 @@ internal class DefaultAppLockGate(
         authenticationJob = activity.lifecycleScope.launch {
             try {
                 val result = coordinator.authenticate(authenticator)
-                if (result is Outcome.Failure && result.error is AppLockError.Canceled) {
-                    activity.finishAffinity()
-                }
+                // UnableToStart is expected in multi-window when another activity is already authenticating
+                if (result is Outcome.Failure && result.error is AppLockError.UnableToStart) Unit
             } finally {
                 authenticationJob = null
             }
@@ -209,6 +211,7 @@ internal class DefaultAppLockGate(
                     AppLockFailedOverlay(
                         errorMessage = getErrorMessage(error),
                         onRetryClick = ::onRetryClicked,
+                        onCloseClick = { activity.finishAffinity() },
                     )
                 }
             }

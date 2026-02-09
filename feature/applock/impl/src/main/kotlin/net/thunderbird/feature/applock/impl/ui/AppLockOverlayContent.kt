@@ -32,6 +32,7 @@ internal fun AppLockPlainOverlay() {
 internal fun AppLockFailedOverlay(
     errorMessage: String,
     onRetryClick: () -> Unit,
+    onCloseClick: () -> Unit,
 ) {
     Surface(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -60,6 +61,11 @@ internal fun AppLockFailedOverlay(
             ButtonFilled(
                 text = stringResource(R.string.applock_button_unlock),
                 onClick = onRetryClick,
+            )
+            Spacer(modifier = Modifier.height(MainTheme.spacings.default))
+            ButtonOutlined(
+                text = stringResource(R.string.applock_button_close_app),
+                onClick = onCloseClick,
             )
         }
     }
