@@ -603,6 +603,40 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
+    fun `onAppBackgrounded transitions Failed to Locked`() = runTest {
+        val coordinator = createCoordinator(
+            config = AppLockConfig(isEnabled = true),
+        )
+
+        coordinator.ensureUnlocked()
+        coordinator.authenticate(FakeAuthenticator.failure(AppLockError.Failed))
+        assertThat(coordinator.state.value).isEqualTo(AppLockState.Failed(AppLockError.Failed))
+
+        coordinator.onAppBackgrounded()
+
+        assertThat(coordinator.state.value).isEqualTo(AppLockState.Locked)
+    }
+
+    @Test
+    fun `onSettingsChanged rejects enabling when auth unavailable`() = runTest {
+        val availability = MutableAppLockAvailability(available = true)
+        val coordinator = createCoordinatorWithMutableAvailability(
+            config = AppLockConfig(isEnabled = false),
+            availability = availability,
+        )
+        assertThat(coordinator.state.value).isEqualTo(AppLockState.Disabled)
+
+        // Make auth unavailable then try to enable
+        availability.setAvailable(false)
+        coordinator.onSettingsChanged(AppLockConfig(isEnabled = true))
+
+        // State should remain Disabled - enabling was rejected
+        assertThat(coordinator.state.value).isEqualTo(AppLockState.Disabled)
+        // Config should not be persisted
+        assertThat(coordinator.config.isEnabled).isFalse()
+    }
+
+    @Test
     fun `screen off clears external intent exemption`() = runTest {
         var now = 100_000L
         val coordinator = createCoordinator(

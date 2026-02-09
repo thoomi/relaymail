@@ -6,7 +6,6 @@ import android.os.Looper
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.FrameLayout
-import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.fragment.app.FragmentActivity
 import assertk.assertThat
@@ -16,6 +15,7 @@ import assertk.assertions.isInstanceOf
 import assertk.assertions.isNotNull
 import assertk.assertions.isNull
 import assertk.assertions.isTrue
+import net.thunderbird.core.outcome.Outcome
 import net.thunderbird.feature.applock.api.AppLockError
 import net.thunderbird.feature.applock.api.AppLockState
 import net.thunderbird.feature.applock.api.UnavailableReason
@@ -64,9 +64,7 @@ class DefaultAppLockGateTest {
 
         val overlay = findOverlay(activity)
         assertThat(overlay).isNotNull()
-        assertThat(overlay!!).isInstanceOf<LinearLayout>()
-        // Plain overlay has no children
-        assertThat((overlay as ViewGroup).childCount).isEqualTo(0)
+        assertThat(overlay!!.tag).isEqualTo("applock_overlay_plain")
     }
 
     @Test
@@ -140,18 +138,19 @@ class DefaultAppLockGateTest {
         val controller = launchActivity(AppLockState.Failed(AppLockError.Failed))
         val activity = controller.get()
 
-        // Verify we have failed overlay
-        var overlay = findOverlay(activity) as? ViewGroup
-        assertThat(overlay!!.childCount).isEqualTo(2) // Failed overlay has children
+        // Verify we have failed overlay (content overlay)
+        var overlay = findOverlay(activity)
+        assertThat(overlay).isNotNull()
+        assertThat(overlay!!.tag).isEqualTo("applock_overlay_content")
 
         // Change state to Locked
         coordinator.setState(AppLockState.Locked)
         shadowOf(Looper.getMainLooper()).idle()
 
-        // Verify overlay is now plain (no children)
-        overlay = findOverlay(activity) as? ViewGroup
+        // Verify overlay is now plain
+        overlay = findOverlay(activity)
         assertThat(overlay).isNotNull()
-        assertThat(overlay!!.childCount).isEqualTo(0) // Plain overlay
+        assertThat(overlay!!.tag).isEqualTo("applock_overlay_plain")
     }
 
     @Test
@@ -380,6 +379,101 @@ class DefaultAppLockGateTest {
     }
 
     @Test
+    fun `overlay shown and auth relaunched after activity recreation during Unlocking`() {
+        // Suspend auth so we stay in Unlocking
+        coordinator.suspendOnAuthenticate()
+
+        val controller = launchActivity(AppLockState.Locked)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        // Verify we're in Unlocking state
+        assertThat(coordinator.state.value).isInstanceOf<AppLockState.Unlocking>()
+        val authCountBeforeRecreate = coordinator.authenticateCallCount
+
+        // Recreate the activity (simulates config change like rotation)
+        controller.pause()
+        shadowOf(Looper.getMainLooper()).idle()
+        controller.stop()
+        shadowOf(Looper.getMainLooper()).idle()
+        controller.destroy()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        // Reset lastAttemptId so the new gate will pick up the current Unlocking attempt
+        coordinator.suspendOnAuthenticate()
+
+        // Build a fresh activity (Robolectric's recreate() reuses the controller)
+        val newController = Robolectric.buildActivity(TestActivity::class.java)
+        newController.create()
+        val newActivity = newController.get()
+        val newGate = DefaultAppLockGate(newActivity, coordinator)
+        newActivity.lifecycle.addObserver(newGate)
+        newController.start().resume()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        // Overlay should be shown on the new activity
+        assertThat(findOverlay(newActivity)).isNotNull()
+
+        // Auth should have been relaunched
+        assertThat(coordinator.authenticateCallCount).isEqualTo(authCountBeforeRecreate + 1)
+    }
+
+    @Test
+    fun `activity B overlay hides when activity A unlocks`() {
+        // Suspend auth so we control the flow
+        coordinator.suspendOnAuthenticate()
+
+        // Launch Activity A in Locked state
+        val controllerA = launchActivity(AppLockState.Locked)
+        val activityA = controllerA.get()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        // Launch Activity B with the same coordinator (already in Unlocking)
+        val controllerB = Robolectric.buildActivity(TestActivity::class.java)
+        controllerB.create()
+        val activityB = controllerB.get()
+        val gateB = DefaultAppLockGate(activityB, coordinator)
+        activityB.lifecycle.addObserver(gateB)
+        controllerB.start().resume()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        // Both activities should have overlays
+        assertThat(findOverlay(activityA)).isNotNull()
+        assertThat(findOverlay(activityB)).isNotNull()
+
+        // Complete auth on Activity A -> coordinator transitions to Unlocked
+        coordinator.completeAuthenticate(Outcome.Success(Unit))
+        shadowOf(Looper.getMainLooper()).idle()
+
+        // Both overlays should be removed
+        assertThat(findOverlay(activityA)).isNull()
+        assertThat(findOverlay(activityB)).isNull()
+    }
+
+    @Test
+    fun `second activity does not show duplicate auth prompt`() {
+        // Suspend auth so we stay in Unlocking
+        coordinator.suspendOnAuthenticate()
+
+        // Launch Activity A - triggers ensureUnlocked and authenticate
+        val controllerA = launchActivity(AppLockState.Locked)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        val authCountAfterA = coordinator.authenticateCallCount
+
+        // Launch Activity B with the same coordinator (already in Unlocking with same attemptId)
+        val controllerB = Robolectric.buildActivity(TestActivity::class.java)
+        controllerB.create()
+        val activityB = controllerB.get()
+        val gateB = DefaultAppLockGate(activityB, coordinator)
+        activityB.lifecycle.addObserver(gateB)
+        controllerB.start().resume()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        // Activity B should NOT call authenticate again (same attemptId, and mutex blocks it)
+        assertThat(coordinator.authenticateCallCount).isEqualTo(authCountAfterA)
+    }
+
+    @Test
     fun `no privacy overlay when paused while Unlocking`() {
         coordinator.setConfigEnabled(true)
         coordinator.suspendOnAuthenticate()
@@ -400,10 +494,11 @@ class DefaultAppLockGateTest {
 
     private fun findOverlay(activity: FragmentActivity): android.view.View? {
         val contentView = activity.findViewById<ViewGroup>(android.R.id.content)
-        // The overlay is added as the last child of the content view
+        // The overlay is added as the last child of the content view, tagged with a known tag
         for (i in contentView.childCount - 1 downTo 0) {
             val child = contentView.getChildAt(i)
-            if (child is LinearLayout) {
+            val tag = child.tag
+            if (tag == "applock_overlay_plain" || tag == "applock_overlay_content") {
                 return child
             }
         }

@@ -10,6 +10,10 @@ import kotlinx.coroutines.flow.StateFlow
  *
  * Uses a pull model: Activities observe [state] and call [ensureUnlocked] when
  * they need to ensure the app is unlocked. No effect bus is used for prompting.
+ *
+ * **Threading contract:** All methods must be called on the main thread.
+ * State mutations are not thread-safe. Callers must not invoke methods from
+ * background threads or coroutine dispatchers other than [Dispatchers.Main].
  */
 interface AppLockCoordinator {
     /**

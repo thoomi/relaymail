@@ -1,7 +1,9 @@
 package net.thunderbird.feature.applock.impl.ui
 
 import android.content.Intent
+import android.graphics.Color
 import android.provider.Settings
+import android.util.TypedValue
 import android.view.View
 import android.view.ViewGroup
 import androidx.compose.ui.platform.ComposeView
@@ -88,6 +90,11 @@ internal class DefaultAppLockGate(
             showLockOverlay()
         }
 
+        // Cancel any in-progress authentication so it can be relaunched on the new activity
+        // after a config change (e.g. rotation). BiometricPrompt cannot survive config changes
+        // because the auth job is tied to activity.lifecycleScope (cancelled on destroy) and the
+        // prompt holds a reference to the old activity. Clearing lastAttemptId allows the new
+        // gate instance to pick up the same Unlocking attempt and relaunch the prompt.
         if (authenticationJob?.isActive == true) {
             authenticationJob?.cancel()
             authenticationJob = null
@@ -174,7 +181,10 @@ internal class DefaultAppLockGate(
 
         val contentView = activity.findViewById<ViewGroup>(android.R.id.content) ?: return
 
-        val overlay = ComposeView(activity).apply {
+        // Use a plain View instead of ComposeView for synchronous rendering.
+        // This minimizes the timing gap where the task switcher could capture
+        // actual content before the overlay renders.
+        val overlay = View(activity).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -182,15 +192,26 @@ internal class DefaultAppLockGate(
             tag = OVERLAY_TAG_PLAIN
             isFocusable = true
             isClickable = true
-            setContent {
-                ThunderbirdTheme2 {
-                    AppLockPlainOverlay()
-                }
-            }
+            setBackgroundColor(resolveWindowBackgroundColor())
         }
 
         contentView.addView(overlay)
         lockOverlay = overlay
+    }
+
+    private fun resolveWindowBackgroundColor(): Int {
+        val typedValue = TypedValue()
+        return if (activity.theme.resolveAttribute(android.R.attr.windowBackground, typedValue, true)) {
+            if (typedValue.type >= TypedValue.TYPE_FIRST_COLOR_INT &&
+                typedValue.type <= TypedValue.TYPE_LAST_COLOR_INT
+            ) {
+                typedValue.data
+            } else {
+                Color.WHITE
+            }
+        } else {
+            Color.WHITE
+        }
     }
 
     private fun showFailedOverlay(error: AppLockError) {

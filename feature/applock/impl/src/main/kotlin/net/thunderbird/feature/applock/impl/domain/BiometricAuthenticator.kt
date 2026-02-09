@@ -26,7 +26,7 @@ import net.thunderbird.feature.applock.api.AppLockResult
  * @param title The title displayed on the biometric prompt.
  * @param subtitle The subtitle displayed on the biometric prompt.
  */
-class BiometricAuthenticator(
+internal class BiometricAuthenticator(
     private val activity: FragmentActivity,
     private val title: String,
     private val subtitle: String,
@@ -83,37 +83,6 @@ class BiometricAuthenticator(
         }
     }
 
-    private fun mapErrorCode(errorCode: Int, errString: String): AppLockError {
-        return when (errorCode) {
-            BiometricPrompt.ERROR_HW_NOT_PRESENT,
-            BiometricPrompt.ERROR_HW_UNAVAILABLE,
-            -> AppLockError.NotAvailable
-
-            BiometricPrompt.ERROR_NO_BIOMETRICS,
-            BiometricPrompt.ERROR_NO_DEVICE_CREDENTIAL,
-            -> AppLockError.NotEnrolled
-
-            BiometricPrompt.ERROR_USER_CANCELED,
-            BiometricPrompt.ERROR_NEGATIVE_BUTTON,
-            -> AppLockError.Canceled
-
-            BiometricPrompt.ERROR_CANCELED,
-            -> AppLockError.Interrupted
-
-            BiometricPrompt.ERROR_LOCKOUT -> AppLockError.Lockout(durationSeconds = 0)
-            // Use -1 to indicate permanent lockout (requires device unlock to reset)
-            BiometricPrompt.ERROR_LOCKOUT_PERMANENT -> AppLockError.Lockout(durationSeconds = -1)
-
-            BiometricPrompt.ERROR_TIMEOUT,
-            BiometricPrompt.ERROR_UNABLE_TO_PROCESS,
-            BiometricPrompt.ERROR_NO_SPACE,
-            BiometricPrompt.ERROR_VENDOR,
-            -> AppLockError.Failed
-
-            else -> AppLockError.UnableToStart(errString)
-        }
-    }
-
     companion object {
         /**
          * Check if biometric or device credential authentication is available.
@@ -128,5 +97,36 @@ class BiometricAuthenticator(
 
             return biometricManager.canAuthenticate(authenticators) == BiometricManager.BIOMETRIC_SUCCESS
         }
+    }
+}
+
+internal fun mapErrorCode(errorCode: Int, errString: String): AppLockError {
+    return when (errorCode) {
+        BiometricPrompt.ERROR_HW_NOT_PRESENT,
+        BiometricPrompt.ERROR_HW_UNAVAILABLE,
+        -> AppLockError.NotAvailable
+
+        BiometricPrompt.ERROR_NO_BIOMETRICS,
+        BiometricPrompt.ERROR_NO_DEVICE_CREDENTIAL,
+        -> AppLockError.NotEnrolled
+
+        BiometricPrompt.ERROR_USER_CANCELED,
+        BiometricPrompt.ERROR_NEGATIVE_BUTTON,
+        -> AppLockError.Canceled
+
+        BiometricPrompt.ERROR_CANCELED,
+        -> AppLockError.Interrupted
+
+        BiometricPrompt.ERROR_LOCKOUT -> AppLockError.Lockout(durationSeconds = 0)
+        // Use -1 to indicate permanent lockout (requires device unlock to reset)
+        BiometricPrompt.ERROR_LOCKOUT_PERMANENT -> AppLockError.Lockout(durationSeconds = -1)
+
+        BiometricPrompt.ERROR_TIMEOUT,
+        BiometricPrompt.ERROR_UNABLE_TO_PROCESS,
+        BiometricPrompt.ERROR_NO_SPACE,
+        BiometricPrompt.ERROR_VENDOR,
+        -> AppLockError.Failed
+
+        else -> AppLockError.UnableToStart(errString)
     }
 }

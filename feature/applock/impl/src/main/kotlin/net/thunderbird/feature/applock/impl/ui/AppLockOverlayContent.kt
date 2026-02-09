@@ -23,10 +23,6 @@ import net.thunderbird.core.ui.compose.designsystem.atom.icon.Icon
 import net.thunderbird.core.ui.compose.designsystem.atom.icon.Icons
 import net.thunderbird.feature.applock.impl.R
 
-@Composable
-internal fun AppLockPlainOverlay() {
-    Surface(modifier = Modifier.fillMaxSize()) {}
-}
 
 @Composable
 internal fun AppLockFailedOverlay(

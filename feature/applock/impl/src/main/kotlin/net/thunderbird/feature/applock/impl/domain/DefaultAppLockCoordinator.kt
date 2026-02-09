@@ -1,6 +1,7 @@
 package net.thunderbird.feature.applock.impl.domain
 
 import android.os.SystemClock
+import androidx.annotation.MainThread
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import kotlin.coroutines.cancellation.CancellationException
@@ -78,6 +79,7 @@ internal class DefaultAppLockCoordinator(
         onAppBackgrounded()
     }
 
+    @MainThread
     override fun onAppForegrounded() {
         val currentConfig = configRepository.getConfig()
         val biometricAvailable = availability.isAuthenticationAvailable()
@@ -128,6 +130,7 @@ internal class DefaultAppLockCoordinator(
         }
     }
 
+    @MainThread
     override fun onAppBackgrounded() {
         when (val current = _state.value) {
             is AppLockState.Unlocked -> {
@@ -142,6 +145,7 @@ internal class DefaultAppLockCoordinator(
         }
     }
 
+    @MainThread
     override fun onScreenOff() {
         val currentConfig = configRepository.getConfig()
         if (currentConfig.isEnabled && availability.isAuthenticationAvailable()) {
@@ -154,6 +158,7 @@ internal class DefaultAppLockCoordinator(
         }
     }
 
+    @MainThread
     override fun lockNow() {
         val currentConfig = configRepository.getConfig()
         if (currentConfig.isEnabled && availability.isAuthenticationAvailable()) {
@@ -161,6 +166,7 @@ internal class DefaultAppLockCoordinator(
         }
     }
 
+    @MainThread
     override fun ensureUnlocked(): Boolean {
         return when (_state.value) {
             AppLockState.Disabled, is AppLockState.Unlocked -> {
@@ -183,26 +189,32 @@ internal class DefaultAppLockCoordinator(
         }
     }
 
+    @MainThread
     override fun onSettingsChanged(config: AppLockConfig) {
+        // Reject enabling when authentication is unavailable to prevent trapping the user
+        if (config.isEnabled && !availability.isAuthenticationAvailable()) {
+            return
+        }
+
         configRepository.setConfig(config)
-        val biometricAvailable = availability.isAuthenticationAvailable()
 
         if (!config.isEnabled) {
             _state.value = AppLockState.Disabled
-        } else if (!biometricAvailable) {
-            _state.value = AppLockState.Unavailable(availability.getUnavailableReason())
         } else {
-            // Lock was enabled - require auth
+            // Lock was enabled and auth is available - require auth
             when (_state.value) {
                 AppLockState.Disabled, is AppLockState.Unavailable -> {
                     _state.value = AppLockState.Locked
                 }
-                // Keep other states as-is
+                // Unlocking/Failed/Locked/Unlocked: keep as-is. In practice this branch is
+                // unreachable because the settings screen is behind the lock overlay, so the
+                // user cannot toggle app lock while locked out.
                 else -> Unit
             }
         }
     }
 
+    @MainThread
     override fun refreshAvailability() {
         val currentConfig = configRepository.getConfig()
         val biometricAvailable = availability.isAuthenticationAvailable()
@@ -219,6 +231,7 @@ internal class DefaultAppLockCoordinator(
         }
     }
 
+    @MainThread
     override fun onExternalIntentLaunching() {
         when (val current = _state.value) {
             is AppLockState.Unlocked -> {
