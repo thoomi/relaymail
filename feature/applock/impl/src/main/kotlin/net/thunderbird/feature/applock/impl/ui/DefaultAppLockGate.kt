@@ -2,15 +2,13 @@ package net.thunderbird.feature.applock.impl.ui
 
 import android.content.Intent
 import android.provider.Settings
-import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
-import android.widget.LinearLayout
-import android.widget.TextView
+import androidx.compose.ui.platform.ComposeView
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
+import app.k9mail.core.ui.compose.theme2.thunderbird.ThunderbirdTheme2
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import net.thunderbird.core.outcome.Outcome
@@ -22,6 +20,9 @@ import net.thunderbird.feature.applock.api.UnavailableReason
 import net.thunderbird.feature.applock.api.isUnlocked
 import net.thunderbird.feature.applock.impl.R
 import net.thunderbird.feature.applock.impl.domain.BiometricAuthenticator
+
+private const val OVERLAY_TAG_PLAIN = "applock_overlay_plain"
+private const val OVERLAY_TAG_CONTENT = "applock_overlay_content"
 
 /**
  * Default implementation of [AppLockGate] that handles lock overlay and biometric authentication.
@@ -163,26 +164,27 @@ internal class DefaultAppLockGate(
     }
 
     private fun showLockOverlay() {
-        // Check if we already have a plain lock overlay (no children)
-        // If we have a failed overlay (with children), replace it
-        val existingOverlay = lockOverlay as? ViewGroup
-        if (existingOverlay != null && existingOverlay.childCount == 0) {
-            return // Already showing plain lock overlay
-        }
+        // Already showing plain lock overlay
+        if (lockOverlay?.tag == OVERLAY_TAG_PLAIN) return
 
-        // Remove any existing overlay (e.g., failed overlay with error text)
+        // Remove any existing overlay (e.g., failed overlay)
         hideLockOverlay()
 
         val contentView = activity.findViewById<ViewGroup>(android.R.id.content) ?: return
 
-        val overlay = LinearLayout(activity).apply {
+        val overlay = ComposeView(activity).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT,
             )
-            setBackgroundColor(getThemeBackgroundColor())
+            tag = OVERLAY_TAG_PLAIN
             isFocusable = true
             isClickable = true
+            setContent {
+                ThunderbirdTheme2 {
+                    AppLockPlainOverlay()
+                }
+            }
         }
 
         contentView.addView(overlay)
@@ -194,30 +196,22 @@ internal class DefaultAppLockGate(
 
         val contentView = activity.findViewById<ViewGroup>(android.R.id.content) ?: return
 
-        val overlay = LinearLayout(activity).apply {
+        val overlay = ComposeView(activity).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT,
             )
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setBackgroundColor(getThemeBackgroundColor())
+            tag = OVERLAY_TAG_CONTENT
             isFocusable = true
             isClickable = true
-
-            val errorMessage = TextView(activity).apply {
-                text = getErrorMessage(error)
-                textSize = 16f
-                gravity = Gravity.CENTER
-                setPadding(48, 16, 48, 16)
+            setContent {
+                ThunderbirdTheme2 {
+                    AppLockFailedOverlay(
+                        errorMessage = getErrorMessage(error),
+                        onRetryClick = ::onRetryClicked,
+                    )
+                }
             }
-            addView(errorMessage)
-
-            val retryButton = Button(activity).apply {
-                text = activity.getString(R.string.applock_button_unlock)
-                setOnClickListener { onRetryClicked() }
-            }
-            addView(retryButton)
         }
 
         contentView.addView(overlay)
@@ -229,54 +223,40 @@ internal class DefaultAppLockGate(
 
         val contentView = activity.findViewById<ViewGroup>(android.R.id.content) ?: return
 
-        val overlay = LinearLayout(activity).apply {
+        val actionButtonText = when (reason) {
+            UnavailableReason.NOT_ENROLLED -> activity.getString(R.string.applock_button_open_settings)
+            UnavailableReason.TEMPORARILY_UNAVAILABLE,
+            UnavailableReason.UNKNOWN,
+            -> activity.getString(R.string.applock_button_try_again)
+            UnavailableReason.NO_HARDWARE -> null
+        }
+
+        val onActionClick: (() -> Unit)? = when (reason) {
+            UnavailableReason.NOT_ENROLLED -> ::openSecuritySettings
+            UnavailableReason.TEMPORARILY_UNAVAILABLE,
+            UnavailableReason.UNKNOWN,
+            -> ::onUnavailableRetryClicked
+            UnavailableReason.NO_HARDWARE -> null
+        }
+
+        val overlay = ComposeView(activity).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT,
             )
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setBackgroundColor(getThemeBackgroundColor())
+            tag = OVERLAY_TAG_CONTENT
             isFocusable = true
             isClickable = true
-
-            val titleView = TextView(activity).apply {
-                text = activity.getString(R.string.applock_requirements_title)
-                textSize = 20f
-                gravity = Gravity.CENTER
-                setPadding(48, 16, 48, 8)
-            }
-            addView(titleView)
-
-            val hintView = TextView(activity).apply {
-                text = getUnavailableHint(reason)
-                textSize = 16f
-                gravity = Gravity.CENTER
-                setPadding(48, 8, 48, 16)
-            }
-            addView(hintView)
-
-            val actionButton = when (reason) {
-                UnavailableReason.NOT_ENROLLED -> Button(activity).apply {
-                    text = activity.getString(R.string.applock_button_open_settings)
-                    setOnClickListener { openSecuritySettings() }
+            setContent {
+                ThunderbirdTheme2 {
+                    AppLockUnavailableOverlay(
+                        hintMessage = getUnavailableHint(reason),
+                        actionButtonText = actionButtonText,
+                        onActionClick = onActionClick,
+                        onCloseClick = { activity.finishAffinity() },
+                    )
                 }
-                UnavailableReason.TEMPORARILY_UNAVAILABLE,
-                UnavailableReason.UNKNOWN,
-                -> Button(activity).apply {
-                    text = activity.getString(R.string.applock_button_try_again)
-                    setOnClickListener { onUnavailableRetryClicked() }
-                }
-                UnavailableReason.NO_HARDWARE -> null
             }
-
-            actionButton?.let { addView(it) }
-
-            val closeButton = Button(activity).apply {
-                text = activity.getString(R.string.applock_button_close_app)
-                setOnClickListener { activity.finishAffinity() }
-            }
-            addView(closeButton)
         }
 
         contentView.addView(overlay)
@@ -346,13 +326,6 @@ internal class DefaultAppLockGate(
             (overlay.parent as? ViewGroup)?.removeView(overlay)
             lockOverlay = null
         }
-    }
-
-    private fun getThemeBackgroundColor(): Int {
-        val typedArray = activity.obtainStyledAttributes(intArrayOf(android.R.attr.windowBackground))
-        val color = typedArray.getColor(0, 0xFF000000.toInt())
-        typedArray.recycle()
-        return color
     }
 }
 
