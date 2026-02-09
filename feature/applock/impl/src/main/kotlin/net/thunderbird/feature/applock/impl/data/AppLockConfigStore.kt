@@ -38,5 +38,4 @@ internal class AppLockConfigStore(context: Context) : AppLockConfigRepository {
             .putLong(AppLockPreferences.KEY_TIMEOUT_MILLIS, config.timeoutMillis)
             .apply()
     }
-
 }
