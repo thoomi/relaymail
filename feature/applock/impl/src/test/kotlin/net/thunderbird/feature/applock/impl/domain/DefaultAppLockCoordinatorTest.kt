@@ -20,8 +20,8 @@ import org.junit.Test
 class DefaultAppLockCoordinatorTest {
 
     @Test
-    fun `cold start requires auth when enabled`() = runTest {
-        val testSubject = createCoordinator(
+    fun `should require auth on cold start when enabled`() = runTest {
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = true),
         )
 
@@ -29,8 +29,8 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `cold start returns Unavailable when enabled but auth unavailable`() = runTest {
-        val testSubject = createCoordinator(
+    fun `should return Unavailable on cold start when enabled but auth unavailable`() = runTest {
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = true),
             biometricAvailable = false,
             unavailableReason = UnavailableReason.NOT_ENROLLED,
@@ -40,8 +40,8 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `onAppForegrounded does nothing when feature is disabled`() = runTest {
-        val testSubject = createCoordinator(
+    fun `should do nothing on foreground when feature is disabled`() = runTest {
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = false),
         )
 
@@ -51,8 +51,8 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `onAppForegrounded transitions to Unavailable when auth is unavailable`() = runTest {
-        val testSubject = createCoordinator(
+    fun `should transition to Unavailable on foreground when auth is unavailable`() = runTest {
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = true),
             biometricAvailable = false,
             unavailableReason = UnavailableReason.NO_HARDWARE,
@@ -64,8 +64,8 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `onAppForegrounded keeps Locked state - pull model requires ensureUnlocked`() = runTest {
-        val testSubject = createCoordinator(
+    fun `should keep Locked state on foreground when pull model requires ensureUnlocked`() = runTest {
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = true),
         )
 
@@ -76,8 +76,8 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `ensureUnlocked transitions Locked to Unlocking`() = runTest {
-        val testSubject = createCoordinator(
+    fun `should transition Locked to Unlocking when ensureUnlocked called`() = runTest {
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = true),
         )
 
@@ -88,8 +88,8 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `ensureUnlocked returns false when already Unlocking`() = runTest {
-        val testSubject = createCoordinator(
+    fun `should return false when ensureUnlocked called and already Unlocking`() = runTest {
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = true),
         )
 
@@ -103,8 +103,8 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `ensureUnlocked returns true when already Unlocked`() = runTest {
-        val testSubject = createCoordinator(
+    fun `should return true when ensureUnlocked called and already Unlocked`() = runTest {
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = true),
         )
 
@@ -118,8 +118,8 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `ensureUnlocked transitions Failed to Unlocking`() = runTest {
-        val testSubject = createCoordinator(
+    fun `should transition Failed to Unlocking when ensureUnlocked called`() = runTest {
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = true),
         )
 
@@ -134,9 +134,9 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `onAppForegrounded locks when timeout exceeded since background`() = runTest {
+    fun `should lock on foreground when timeout exceeded since background`() = runTest {
         var now = 100_000L
-        val testSubject = createCoordinator(
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = true, timeoutMillis = 60_000L),
             clock = { now },
         )
@@ -156,9 +156,9 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `onAppForegrounded stays Unlocked when timeout not exceeded since background`() = runTest {
+    fun `should stay Unlocked on foreground when timeout not exceeded since background`() = runTest {
         var now = 100_000L
-        val testSubject = createCoordinator(
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = true, timeoutMillis = 60_000L),
             clock = { now },
         )
@@ -178,9 +178,9 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `onAppForegrounded locks immediately when timeout is zero`() = runTest {
+    fun `should lock immediately on foreground when timeout is zero`() = runTest {
         var now = 100_000L
-        val testSubject = createCoordinator(
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = true, timeoutMillis = 0L),
             clock = { now },
         )
@@ -200,8 +200,8 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `onAppBackgrounded cancels Unlocking state`() = runTest {
-        val testSubject = createCoordinator(
+    fun `should cancel Unlocking state when backgrounded`() = runTest {
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = true),
         )
 
@@ -214,8 +214,8 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `onScreenOff locks when Unlocked`() = runTest {
-        val testSubject = createCoordinator(
+    fun `should lock when screen off and Unlocked`() = runTest {
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = true),
         )
 
@@ -229,8 +229,8 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `onScreenOff locks when Unlocking`() = runTest {
-        val testSubject = createCoordinator(
+    fun `should lock when screen off and Unlocking`() = runTest {
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = true),
         )
 
@@ -243,8 +243,8 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `onScreenOff does nothing when Disabled`() = runTest {
-        val testSubject = createCoordinator(
+    fun `should do nothing when screen off and Disabled`() = runTest {
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = false),
         )
 
@@ -254,8 +254,8 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `lockNow transitions to Locked`() = runTest {
-        val testSubject = createCoordinator(
+    fun `should transition to Locked when lockNow called`() = runTest {
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = true),
         )
 
@@ -269,8 +269,8 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `onSettingsChanged transitions to Locked when enabled`() = runTest {
-        val testSubject = createCoordinator(
+    fun `should transition to Locked when settings changed to enabled`() = runTest {
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = false),
         )
 
@@ -280,8 +280,8 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `authenticate updates state on success`() = runTest {
-        val testSubject = createCoordinator(
+    fun `should update state when authentication succeeds`() = runTest {
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = true),
         )
 
@@ -295,8 +295,8 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `authenticate updates state on failure`() = runTest {
-        val testSubject = createCoordinator(
+    fun `should update state when authentication fails`() = runTest {
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = true),
         )
 
@@ -310,8 +310,8 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `authenticate returns error when not in Unlocking state`() = runTest {
-        val testSubject = createCoordinator(
+    fun `should return error when authenticate called and not in Unlocking state`() = runTest {
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = true),
         )
 
@@ -324,8 +324,8 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `authenticate transitions to Locked on Interrupted error`() = runTest {
-        val testSubject = createCoordinator(
+    fun `should transition to Locked when authentication interrupted`() = runTest {
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = true),
         )
 
@@ -337,8 +337,8 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `isEnabled returns true when feature is enabled`() = runTest {
-        val testSubject = createCoordinator(
+    fun `should return true for isEnabled when feature is enabled`() = runTest {
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = true),
         )
 
@@ -346,8 +346,8 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `isEnabled returns false when feature is disabled`() = runTest {
-        val testSubject = createCoordinator(
+    fun `should return false for isEnabled when feature is disabled`() = runTest {
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = false),
         )
 
@@ -355,8 +355,8 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `onSettingsChanged disables lock when isEnabled set to false`() = runTest {
-        val testSubject = createCoordinator(
+    fun `should disable lock when settings changed to disabled`() = runTest {
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = true),
         )
         assertThat(testSubject.state.value).isEqualTo(AppLockState.Locked)
@@ -367,8 +367,8 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `ensureUnlocked after failure allows successful authentication`() = runTest {
-        val testSubject = createCoordinator(
+    fun `should allow successful authentication when ensureUnlocked called after failure`() = runTest {
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = true),
         )
 
@@ -387,8 +387,8 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `ensureUnlocked returns false when Unavailable`() = runTest {
-        val testSubject = createCoordinator(
+    fun `should return false when ensureUnlocked called and Unavailable`() = runTest {
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = true),
             biometricAvailable = false,
             unavailableReason = UnavailableReason.NOT_ENROLLED,
@@ -402,15 +402,15 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `isUnlocked returns false for Unavailable state`() = runTest {
+    fun `should return false for isUnlocked when state is Unavailable`() = runTest {
         val state = AppLockState.Unavailable(UnavailableReason.NOT_ENROLLED)
 
         assertThat(state.isUnlocked()).isFalse()
     }
 
     @Test
-    fun `authenticate rejects concurrent calls`() = runTest {
-        val testSubject = createCoordinator(
+    fun `should reject concurrent authenticate calls`() = runTest {
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = true),
         )
 
@@ -438,9 +438,9 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `refreshAvailability transitions Unavailable to Locked when auth available`() = runTest {
+    fun `should transition Unavailable to Locked when refreshAvailability finds auth available`() = runTest {
         val availability = MutableAppLockAvailability(available = false, reason = UnavailableReason.NOT_ENROLLED)
-        val testSubject = createCoordinatorWithMutableAvailability(
+        val testSubject = createTestSubjectWithMutableAvailability(
             config = AppLockConfig(isEnabled = true),
             availability = availability,
         )
@@ -455,8 +455,8 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `refreshAvailability does nothing when not in Unavailable state`() = runTest {
-        val testSubject = createCoordinator(
+    fun `should do nothing when refreshAvailability called and not in Unavailable state`() = runTest {
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = true),
         )
 
@@ -469,7 +469,7 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `refreshAvailability transitions to Disabled when lock is disabled`() = runTest {
+    fun `should transition to Disabled when refreshAvailability called and lock is disabled`() = runTest {
         val configRepository = MutableAppLockConfigRepository(AppLockConfig(isEnabled = true))
         val availability = MutableAppLockAvailability(available = false, reason = UnavailableReason.NOT_ENROLLED)
         val testSubject = DefaultAppLockCoordinator(
@@ -488,9 +488,9 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `onExternalIntentLaunching sets exemption when unlocked`() = runTest {
+    fun `should set exemption when external intent launching and unlocked`() = runTest {
         var now = 100_000L
-        val testSubject = createCoordinator(
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = true),
             clock = { now },
         )
@@ -508,8 +508,8 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `onExternalIntentLaunching does nothing when locked`() = runTest {
-        val testSubject = createCoordinator(
+    fun `should do nothing when external intent launching and locked`() = runTest {
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = true),
         )
 
@@ -522,9 +522,9 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `external intent exemption allows return without re-auth`() = runTest {
+    fun `should allow return without re-auth when external intent exemption active`() = runTest {
         var now = 100_000L
-        val testSubject = createCoordinator(
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = true, timeoutMillis = 0L),
             clock = { now },
         )
@@ -547,9 +547,9 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `external intent exemption is consumed after foreground`() = runTest {
+    fun `should consume external intent exemption after foreground`() = runTest {
         var now = 100_000L
-        val testSubject = createCoordinator(
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = true, timeoutMillis = 0L),
             clock = { now },
         )
@@ -578,9 +578,9 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `external intent exemption expires after grace period`() = runTest {
+    fun `should expire external intent exemption after grace period`() = runTest {
         var now = 100_000L
-        val testSubject = createCoordinator(
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = true, timeoutMillis = 0L),
             clock = { now },
         )
@@ -604,8 +604,8 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `requestEnable authenticates and enables on success`() = runTest {
-        val testSubject = createCoordinator(
+    fun `should authenticate and enable when requestEnable succeeds`() = runTest {
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = false),
         )
         assertThat(testSubject.state.value).isEqualTo(AppLockState.Disabled)
@@ -618,8 +618,8 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `requestEnable does not enable on auth failure`() = runTest {
-        val testSubject = createCoordinator(
+    fun `should not enable when requestEnable authentication fails`() = runTest {
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = false),
         )
         assertThat(testSubject.state.value).isEqualTo(AppLockState.Disabled)
@@ -632,8 +632,8 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `requestEnable rejects when auth unavailable`() = runTest {
-        val testSubject = createCoordinator(
+    fun `should reject requestEnable when auth unavailable`() = runTest {
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = false),
             biometricAvailable = false,
         )
@@ -645,8 +645,8 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `requestEnable rejects concurrent calls`() = runTest {
-        val testSubject = createCoordinator(
+    fun `should reject concurrent requestEnable calls`() = runTest {
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = false),
         )
 
@@ -668,8 +668,8 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `onAppBackgrounded transitions Failed to Locked`() = runTest {
-        val testSubject = createCoordinator(
+    fun `should transition Failed to Locked when backgrounded`() = runTest {
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = true),
         )
 
@@ -683,9 +683,9 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `onSettingsChanged rejects enabling when auth unavailable`() = runTest {
+    fun `should reject enabling when settings changed and auth unavailable`() = runTest {
         val availability = MutableAppLockAvailability(available = true)
-        val testSubject = createCoordinatorWithMutableAvailability(
+        val testSubject = createTestSubjectWithMutableAvailability(
             config = AppLockConfig(isEnabled = false),
             availability = availability,
         )
@@ -702,9 +702,9 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `screen off clears external intent exemption`() = runTest {
+    fun `should clear external intent exemption when screen off`() = runTest {
         var now = 100_000L
-        val testSubject = createCoordinator(
+        val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = true),
             clock = { now },
         )
@@ -737,13 +737,13 @@ class DefaultAppLockCoordinatorTest {
         }
     }
 
-    private fun createCoordinator(
+    private fun createTestSubject(
         config: AppLockConfig,
         biometricAvailable: Boolean = true,
         unavailableReason: UnavailableReason = UnavailableReason.NO_HARDWARE,
         clock: () -> Long = { System.currentTimeMillis() },
     ): DefaultAppLockCoordinator {
-        val configRepository = InMemoryAppLockConfigRepository(config)
+        val configRepository = FakeAppLockConfigRepository(config)
         val availability = FakeAppLockAvailability(available = biometricAvailable, reason = unavailableReason)
 
         return DefaultAppLockCoordinator(
@@ -754,7 +754,7 @@ class DefaultAppLockCoordinatorTest {
         )
     }
 
-    private class InMemoryAppLockConfigRepository(
+    private class FakeAppLockConfigRepository(
         private var config: AppLockConfig,
     ) : AppLockConfigRepository {
         override fun getConfig(): AppLockConfig = config
@@ -794,12 +794,12 @@ class DefaultAppLockCoordinatorTest {
         }
     }
 
-    private fun createCoordinatorWithMutableAvailability(
+    private fun createTestSubjectWithMutableAvailability(
         config: AppLockConfig,
         availability: MutableAppLockAvailability,
         clock: () -> Long = { System.currentTimeMillis() },
     ): DefaultAppLockCoordinator {
-        val configRepository = InMemoryAppLockConfigRepository(config)
+        val configRepository = FakeAppLockConfigRepository(config)
 
         return DefaultAppLockCoordinator(
             configRepository = configRepository,

@@ -12,7 +12,6 @@ import assertk.assertions.isEqualTo
 import assertk.assertions.isInstanceOf
 import assertk.assertions.isNotNull
 import assertk.assertions.isNull
-import assertk.assertions.isTrue
 import net.thunderbird.core.outcome.Outcome
 import net.thunderbird.core.ui.theme.api.FeatureThemeProvider
 import net.thunderbird.feature.applock.api.AppLockError
@@ -33,7 +32,7 @@ import org.robolectric.annotation.Config
 class DefaultAppLockGateTest {
 
     private lateinit var coordinator: FakeAppLockCoordinator
-    private lateinit var gate: DefaultAppLockGate
+    private lateinit var testSubject: DefaultAppLockGate
 
     private val themeProvider = object : FeatureThemeProvider {
         @Composable
@@ -53,15 +52,15 @@ class DefaultAppLockGateTest {
         val controller = Robolectric.buildActivity(TestActivity::class.java)
         controller.create()
         val activity = controller.get()
-        gate = DefaultAppLockGate(activity, coordinator, themeProvider)
-        activity.lifecycle.addObserver(gate)
+        testSubject = DefaultAppLockGate(activity, coordinator, themeProvider)
+        activity.lifecycle.addObserver(testSubject)
         controller.start().resume()
         shadowOf(Looper.getMainLooper()).idle()
         return controller
     }
 
     @Test
-    fun `shows plain overlay when state is Locked`() {
+    fun `should show plain overlay when state is Locked`() {
         coordinator.suspendOnAuthenticate()
 
         val controller = launchActivity(AppLockState.Locked)
@@ -73,7 +72,7 @@ class DefaultAppLockGateTest {
     }
 
     @Test
-    fun `shows content overlay when state is Failed`() {
+    fun `should show content overlay when state is Failed`() {
         val controller = launchActivity(AppLockState.Failed(AppLockError.Failed))
         val activity = controller.get()
 
@@ -83,7 +82,7 @@ class DefaultAppLockGateTest {
     }
 
     @Test
-    fun `shows content overlay for permanent lockout`() {
+    fun `should show content overlay when permanent lockout`() {
         val controller = launchActivity(AppLockState.Failed(AppLockError.Lockout(durationSeconds = -1)))
         val activity = controller.get()
 
@@ -93,7 +92,7 @@ class DefaultAppLockGateTest {
     }
 
     @Test
-    fun `shows content overlay for temporary lockout`() {
+    fun `should show content overlay when temporary lockout`() {
         val controller = launchActivity(AppLockState.Failed(AppLockError.Lockout(durationSeconds = 30)))
         val activity = controller.get()
 
@@ -103,7 +102,7 @@ class DefaultAppLockGateTest {
     }
 
     @Test
-    fun `replaces failed overlay with plain overlay when state changes to Locked`() {
+    fun `should replace failed overlay with plain overlay when state changes to Locked`() {
         coordinator.suspendOnAuthenticate()
 
         val controller = launchActivity(AppLockState.Failed(AppLockError.Failed))
@@ -122,7 +121,7 @@ class DefaultAppLockGateTest {
     }
 
     @Test
-    fun `hides overlay when state becomes Unlocked`() {
+    fun `should hide overlay when state becomes Unlocked`() {
         coordinator.suspendOnAuthenticate()
 
         val controller = launchActivity(AppLockState.Locked)
@@ -137,7 +136,7 @@ class DefaultAppLockGateTest {
     }
 
     @Test
-    fun `hides overlay when state becomes Disabled`() {
+    fun `should hide overlay when state becomes Disabled`() {
         coordinator.suspendOnAuthenticate()
 
         val controller = launchActivity(AppLockState.Locked)
@@ -152,7 +151,7 @@ class DefaultAppLockGateTest {
     }
 
     @Test
-    fun `auth relaunches after pause-resume while Unlocking`() {
+    fun `should relaunch auth after pause-resume when Unlocking`() {
         coordinator.suspendOnAuthenticate()
 
         val controller = launchActivity(AppLockState.Locked)
@@ -169,7 +168,7 @@ class DefaultAppLockGateTest {
     }
 
     @Test
-    fun `no duplicate auth on pause-resume when auth already completed`() {
+    fun `should not trigger duplicate auth on pause-resume when auth already completed`() {
         val controller = launchActivity(AppLockState.Locked)
         shadowOf(Looper.getMainLooper()).idle()
 
@@ -186,7 +185,7 @@ class DefaultAppLockGateTest {
     }
 
     @Test
-    fun `shows content overlay for temporarily unavailable`() {
+    fun `should show content overlay when temporarily unavailable`() {
         val controller = launchActivity(AppLockState.Unavailable(UnavailableReason.TEMPORARILY_UNAVAILABLE))
         val activity = controller.get()
 
@@ -196,7 +195,7 @@ class DefaultAppLockGateTest {
     }
 
     @Test
-    fun `shows content overlay for unknown unavailable`() {
+    fun `should show content overlay when unknown unavailable`() {
         val controller = launchActivity(AppLockState.Unavailable(UnavailableReason.UNKNOWN))
         val activity = controller.get()
 
@@ -206,7 +205,7 @@ class DefaultAppLockGateTest {
     }
 
     @Test
-    fun `shows content overlay for no hardware unavailable`() {
+    fun `should show content overlay when no hardware unavailable`() {
         val controller = launchActivity(AppLockState.Unavailable(UnavailableReason.NO_HARDWARE))
         val activity = controller.get()
 
@@ -216,7 +215,7 @@ class DefaultAppLockGateTest {
     }
 
     @Test
-    fun `shows privacy overlay when paused and app lock is enabled`() {
+    fun `should show privacy overlay when paused and app lock is enabled`() {
         coordinator.setConfigEnabled(true)
         val controller = launchActivity(AppLockState.Unlocked())
         val activity = controller.get()
@@ -230,7 +229,7 @@ class DefaultAppLockGateTest {
     }
 
     @Test
-    fun `no privacy overlay when paused and app lock is disabled`() {
+    fun `should not show privacy overlay when paused and app lock is disabled`() {
         coordinator.setConfigEnabled(false)
         val controller = launchActivity(AppLockState.Disabled)
         val activity = controller.get()
@@ -242,7 +241,7 @@ class DefaultAppLockGateTest {
     }
 
     @Test
-    fun `hides privacy overlay when resumed while still unlocked`() {
+    fun `should hide privacy overlay when resumed while still unlocked`() {
         coordinator.setConfigEnabled(true)
         val controller = launchActivity(AppLockState.Unlocked())
         val activity = controller.get()
@@ -257,7 +256,7 @@ class DefaultAppLockGateTest {
     }
 
     @Test
-    fun `overlay shown and auth relaunched after activity recreation during Unlocking`() {
+    fun `should show overlay and relaunch auth after activity recreation when Unlocking`() {
         coordinator.suspendOnAuthenticate()
 
         val controller = launchActivity(AppLockState.Locked)
@@ -288,7 +287,7 @@ class DefaultAppLockGateTest {
     }
 
     @Test
-    fun `activity B overlay hides when activity A unlocks`() {
+    fun `should hide activity B overlay when activity A unlocks`() {
         coordinator.suspendOnAuthenticate()
 
         val controllerA = launchActivity(AppLockState.Locked)
@@ -314,7 +313,7 @@ class DefaultAppLockGateTest {
     }
 
     @Test
-    fun `second activity does not show duplicate auth prompt`() {
+    fun `should not show duplicate auth prompt when second activity starts`() {
         coordinator.suspendOnAuthenticate()
 
         val controllerA = launchActivity(AppLockState.Locked)
@@ -334,7 +333,7 @@ class DefaultAppLockGateTest {
     }
 
     @Test
-    fun `no privacy overlay when paused while Unlocking`() {
+    fun `should not show privacy overlay when paused while Unlocking`() {
         coordinator.setConfigEnabled(true)
         coordinator.suspendOnAuthenticate()
         val controller = launchActivity(AppLockState.Locked)

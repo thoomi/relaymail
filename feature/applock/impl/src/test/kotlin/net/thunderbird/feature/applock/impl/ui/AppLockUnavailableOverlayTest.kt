@@ -12,7 +12,7 @@ import org.junit.Test
 class AppLockUnavailableOverlayTest : ComposeTest() {
 
     @Test
-    fun `shows hint for temporarily unavailable`() {
+    fun `should show hint when temporarily unavailable`() {
         val hintMessage = getString(R.string.applock_error_temporarily_unavailable)
 
         setContentWithTheme {
@@ -28,7 +28,7 @@ class AppLockUnavailableOverlayTest : ComposeTest() {
     }
 
     @Test
-    fun `shows hint for unknown unavailable`() {
+    fun `should show hint when unknown unavailable`() {
         val hintMessage = getString(R.string.applock_error_unknown_unavailable)
 
         setContentWithTheme {
@@ -44,7 +44,7 @@ class AppLockUnavailableOverlayTest : ComposeTest() {
     }
 
     @Test
-    fun `no hardware shows close app button and no action button`() {
+    fun `should show close app button and no action button when no hardware`() {
         val hintMessage = getString(R.string.applock_error_not_available)
 
         setContentWithTheme {
@@ -61,7 +61,7 @@ class AppLockUnavailableOverlayTest : ComposeTest() {
     }
 
     @Test
-    fun `temporarily unavailable shows try again action button`() {
+    fun `should show try again action button when temporarily unavailable`() {
         setContentWithTheme {
             AppLockUnavailableOverlay(
                 hintMessage = getString(R.string.applock_error_temporarily_unavailable),
@@ -75,7 +75,7 @@ class AppLockUnavailableOverlayTest : ComposeTest() {
     }
 
     @Test
-    fun `action button click triggers onActionClick callback`() {
+    fun `should trigger onActionClick callback when action button clicked`() {
         var actionClickCount = 0
 
         setContentWithTheme {
@@ -93,7 +93,7 @@ class AppLockUnavailableOverlayTest : ComposeTest() {
     }
 
     @Test
-    fun `close button click triggers onCloseClick callback`() {
+    fun `should trigger onCloseClick callback when close button clicked`() {
         var closeClickCount = 0
 
         setContentWithTheme {

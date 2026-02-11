@@ -1,6 +1,7 @@
 package net.thunderbird.feature.applock.impl
 
 import androidx.biometric.BiometricManager
+import net.thunderbird.core.ui.theme.api.FeatureThemeProvider
 import net.thunderbird.feature.applock.api.AppLockAuthenticatorFactory
 import net.thunderbird.feature.applock.api.AppLockCoordinator
 import net.thunderbird.feature.applock.api.AppLockGate
@@ -10,7 +11,6 @@ import net.thunderbird.feature.applock.impl.domain.DefaultAppLockCoordinator
 import net.thunderbird.feature.applock.impl.domain.DefaultAppLockLifecycleHandler
 import net.thunderbird.feature.applock.impl.domain.DefaultBiometricAvailabilityChecker
 import net.thunderbird.feature.applock.impl.ui.DefaultAppLockGateFactory
-import net.thunderbird.core.ui.theme.api.FeatureThemeProvider
 import org.koin.android.ext.koin.androidApplication
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.Module

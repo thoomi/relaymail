@@ -12,7 +12,7 @@ import org.junit.Test
 class AppLockFailedOverlayTest : ComposeTest() {
 
     @Test
-    fun `shows error message for generic failure`() {
+    fun `should show error message when generic failure`() {
         val errorMessage = getString(R.string.applock_error_failed)
 
         setContentWithTheme {
@@ -27,7 +27,7 @@ class AppLockFailedOverlayTest : ComposeTest() {
     }
 
     @Test
-    fun `shows permanent lockout message`() {
+    fun `should show permanent lockout message`() {
         val errorMessage = getString(R.string.applock_error_lockout_permanent)
 
         setContentWithTheme {
@@ -42,7 +42,7 @@ class AppLockFailedOverlayTest : ComposeTest() {
     }
 
     @Test
-    fun `shows temporary lockout message with duration`() {
+    fun `should show temporary lockout message with duration`() {
         val durationSeconds = 30
         val errorMessage = getString(R.string.applock_error_lockout).format(durationSeconds)
 
@@ -58,7 +58,7 @@ class AppLockFailedOverlayTest : ComposeTest() {
     }
 
     @Test
-    fun `retry button click triggers onRetryClick callback`() {
+    fun `should trigger onRetryClick callback when retry button clicked`() {
         var retryClickCount = 0
 
         setContentWithTheme {
@@ -75,7 +75,7 @@ class AppLockFailedOverlayTest : ComposeTest() {
     }
 
     @Test
-    fun `close button click triggers onCloseClick callback`() {
+    fun `should trigger onCloseClick callback when close button clicked`() {
         var closeClickCount = 0
 
         setContentWithTheme {
