@@ -35,7 +35,7 @@ abstract class BaseActivity(
     protected val themeManager: ThemeManager by inject()
     private val appLanguageManager: AppLanguageManager by inject()
     private val appLockGateFactory: AppLockGate.Factory? by lazy {
-        runCatching<AppLockGate.Factory> { getKoin().get(AppLockGate.Factory::class) }.getOrNull()
+        getKoin().getOrNull(AppLockGate.Factory::class)
     }
 
     private var overrideLocaleOnLaunch: Locale? = null

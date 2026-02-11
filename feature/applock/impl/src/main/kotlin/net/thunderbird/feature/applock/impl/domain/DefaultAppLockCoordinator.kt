@@ -1,5 +1,6 @@
 package net.thunderbird.feature.applock.impl.domain
 
+import android.os.Looper
 import android.os.SystemClock
 import androidx.annotation.MainThread
 import androidx.lifecycle.DefaultLifecycleObserver
@@ -8,7 +9,6 @@ import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.sync.Mutex
 import net.thunderbird.core.outcome.Outcome
 import net.thunderbird.feature.applock.api.AppLockAuthenticator
 import net.thunderbird.feature.applock.api.AppLockConfig
@@ -35,6 +35,7 @@ internal class DefaultAppLockCoordinator(
     private val availability: AppLockAvailability,
     lifecycleHandler: AppLockLifecycleHandler? = null,
     private val clock: () -> Long = { SystemClock.elapsedRealtime() },
+    private val mainThreadCheck: () -> Unit = ::defaultMainThreadCheck,
 ) : AppLockCoordinator, DefaultLifecycleObserver {
 
     private val _state = MutableStateFlow<AppLockState>(AppLockState.Disabled)
@@ -45,7 +46,7 @@ internal class DefaultAppLockCoordinator(
     override val state: StateFlow<AppLockState> = _state.asStateFlow()
 
     private var nextAttemptId: Long = 0L
-    private val authMutex = Mutex()
+    private var isAuthenticating = false
 
     override val config: AppLockConfig
         get() = configRepository.getConfig()
@@ -245,14 +246,17 @@ internal class DefaultAppLockCoordinator(
 
     @Suppress("TooGenericExceptionCaught")
     override suspend fun requestEnable(authenticator: AppLockAuthenticator): AppLockResult {
+        mainThreadCheck()
+
         if (!availability.isAuthenticationAvailable()) {
             return Outcome.Failure(AppLockError.NotAvailable)
         }
 
-        if (!authMutex.tryLock()) {
+        if (isAuthenticating) {
             return Outcome.Failure(AppLockError.UnableToStart("Authentication already in progress"))
         }
 
+        isAuthenticating = true
         try {
             val result = try {
                 authenticator.authenticate()
@@ -270,17 +274,20 @@ internal class DefaultAppLockCoordinator(
 
             return result
         } finally {
-            authMutex.unlock()
+            isAuthenticating = false
         }
     }
 
     @Suppress("TooGenericExceptionCaught")
     override suspend fun authenticate(authenticator: AppLockAuthenticator): AppLockResult {
+        mainThreadCheck()
+
         // Single-flight: reject if already authenticating
-        if (!authMutex.tryLock()) {
+        if (isAuthenticating) {
             return Outcome.Failure(AppLockError.UnableToStart("Authentication already in progress"))
         }
 
+        isAuthenticating = true
         try {
             val unlocking = _state.value as? AppLockState.Unlocking
                 ?: return Outcome.Failure(AppLockError.UnableToStart("Not in Unlocking state"))
@@ -310,7 +317,7 @@ internal class DefaultAppLockCoordinator(
 
             return result
         } finally {
-            authMutex.unlock()
+            isAuthenticating = false
         }
     }
 
@@ -327,5 +334,11 @@ internal class DefaultAppLockCoordinator(
     private fun isTimeoutExceeded(lastHiddenAtMillis: Long, timeoutMillis: Long): Boolean {
         val elapsed = clock() - lastHiddenAtMillis
         return elapsed >= timeoutMillis
+    }
+}
+
+private fun defaultMainThreadCheck() {
+    check(Looper.myLooper() == Looper.getMainLooper()) {
+        "AppLockCoordinator methods must be called on the main thread"
     }
 }

@@ -46,7 +46,6 @@ class GeneralSettingsFragment : PreferenceFragmentCompat() {
     private val appLockAuthenticatorFactory: AppLockAuthenticatorFactory by inject()
 
     private var rootKey: String? = null
-    private var isSettingAppLockProgrammatically = false
     private var currentUiState: GeneralSettingsUiState? = null
     private var snackbar: Snackbar? = null
 
@@ -192,13 +191,8 @@ class GeneralSettingsFragment : PreferenceFragmentCompat() {
         findPreference<TwoStatePreference>(PREFERENCE_APP_LOCK_ENABLED)
             ?.onPreferenceChangeListener = Preference.OnPreferenceChangeListener { _, newValue ->
             if (newValue as Boolean) {
-                if (isSettingAppLockProgrammatically) {
-                    isSettingAppLockProgrammatically = false
-                    true
-                } else {
-                    requestAppLockEnable()
-                    false
-                }
+                requestAppLockEnable()
+                false
             } else {
                 true
             }
@@ -212,7 +206,6 @@ class GeneralSettingsFragment : PreferenceFragmentCompat() {
         viewLifecycleOwner.lifecycleScope.launch {
             val result = appLockCoordinator.requestEnable(authenticator)
             if (result is Outcome.Success) {
-                isSettingAppLockProgrammatically = true
                 findPreference<TwoStatePreference>(PREFERENCE_APP_LOCK_ENABLED)?.isChecked = true
             }
         }

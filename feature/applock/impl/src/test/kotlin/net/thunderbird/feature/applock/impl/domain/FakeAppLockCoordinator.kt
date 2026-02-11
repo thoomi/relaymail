@@ -17,7 +17,6 @@ import net.thunderbird.feature.applock.api.AppLockState
  */
 internal class FakeAppLockCoordinator(
     private var authResult: AppLockResult = Outcome.Success(Unit),
-    override var isEnabled: Boolean = false,
 ) : AppLockCoordinator {
 
     private val _state = MutableStateFlow<AppLockState>(AppLockState.Disabled)

@@ -217,6 +217,9 @@ internal class DefaultAppLockGate(
     }
 
     private fun showFailedOverlay(error: AppLockError) {
+        // Already showing a content overlay (failed or unavailable) — avoid removing and re-adding which causes a flash
+        if (lockOverlay?.tag == OVERLAY_TAG_CONTENT) return
+
         hideLockOverlay()
 
         val contentView = activity.findViewById<ViewGroup>(android.R.id.content) ?: return
@@ -245,6 +248,9 @@ internal class DefaultAppLockGate(
     }
 
     private fun showUnavailableOverlay(reason: UnavailableReason) {
+        // Already showing a content overlay (failed or unavailable) — avoid removing and re-adding which causes a flash
+        if (lockOverlay?.tag == OVERLAY_TAG_CONTENT) return
+
         hideLockOverlay()
 
         val contentView = activity.findViewById<ViewGroup>(android.R.id.content) ?: return

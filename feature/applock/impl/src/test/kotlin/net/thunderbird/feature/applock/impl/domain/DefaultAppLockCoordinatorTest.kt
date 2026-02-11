@@ -475,6 +475,7 @@ class DefaultAppLockCoordinatorTest {
         val testSubject = DefaultAppLockCoordinator(
             configRepository = configRepository,
             availability = availability,
+            mainThreadCheck = {},
         )
 
         assertThat(testSubject.state.value).isEqualTo(AppLockState.Unavailable(UnavailableReason.NOT_ENROLLED))
@@ -749,6 +750,7 @@ class DefaultAppLockCoordinatorTest {
             configRepository = configRepository,
             availability = availability,
             clock = clock,
+            mainThreadCheck = {},
         )
     }
 
@@ -803,6 +805,7 @@ class DefaultAppLockCoordinatorTest {
             configRepository = configRepository,
             availability = availability,
             clock = clock,
+            mainThreadCheck = {},
         )
     }
 }
