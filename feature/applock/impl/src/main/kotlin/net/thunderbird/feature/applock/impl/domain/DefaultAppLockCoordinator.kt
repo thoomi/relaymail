@@ -244,6 +244,37 @@ internal class DefaultAppLockCoordinator(
     }
 
     @Suppress("TooGenericExceptionCaught")
+    override suspend fun requestEnable(authenticator: AppLockAuthenticator): AppLockResult {
+        if (!availability.isAuthenticationAvailable()) {
+            return Outcome.Failure(AppLockError.NotAvailable)
+        }
+
+        if (!authMutex.tryLock()) {
+            return Outcome.Failure(AppLockError.UnableToStart("Authentication already in progress"))
+        }
+
+        try {
+            val result = try {
+                authenticator.authenticate()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Outcome.Failure(AppLockError.UnableToStart(e.message ?: "Unknown error"))
+            }
+
+            if (result is Outcome.Success) {
+                val currentConfig = configRepository.getConfig()
+                configRepository.setConfig(currentConfig.copy(isEnabled = true))
+                _state.value = AppLockState.Unlocked(lastHiddenAtElapsedMillis = null)
+            }
+
+            return result
+        } finally {
+            authMutex.unlock()
+        }
+    }
+
+    @Suppress("TooGenericExceptionCaught")
     override suspend fun authenticate(authenticator: AppLockAuthenticator): AppLockResult {
         // Single-flight: reject if already authenticating
         if (!authMutex.tryLock()) {

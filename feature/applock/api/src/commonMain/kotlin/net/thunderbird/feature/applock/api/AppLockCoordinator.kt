@@ -80,6 +80,17 @@ interface AppLockCoordinator {
     suspend fun authenticate(authenticator: AppLockAuthenticator): AppLockResult
 
     /**
+     * Authenticate and enable app lock in a single operation.
+     *
+     * Unlike [onSettingsChanged], this authenticates *before* persisting the config change.
+     * On success, config is persisted with `isEnabled = true` and state transitions to Unlocked.
+     * On failure, no config or state change occurs.
+     *
+     * @return [AppLockResult] indicating success or the authentication error.
+     */
+    suspend fun requestEnable(authenticator: AppLockAuthenticator): AppLockResult
+
+    /**
      * Re-check authentication availability after returning from device settings.
      * Transitions Unavailable -> Locked if auth is now available.
      */

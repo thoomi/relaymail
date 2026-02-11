@@ -9,9 +9,11 @@ import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts.CreateDocument
 import androidx.core.view.MenuProvider
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceScreen
+import androidx.preference.TwoStatePreference
 import androidx.work.WorkInfo
 import app.k9mail.feature.telemetry.api.TelemetryManager
 import com.fsck.k9.job.K9JobManager
@@ -25,8 +27,11 @@ import com.takisoft.preferencex.PreferenceFragmentCompat
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
+import kotlinx.coroutines.launch
 import net.thunderbird.core.featureflag.FeatureFlagProvider
 import net.thunderbird.core.featureflag.toFeatureFlagKey
+import net.thunderbird.core.outcome.Outcome
+import net.thunderbird.feature.applock.api.AppLockAuthenticatorFactory
 import net.thunderbird.feature.applock.api.AppLockCoordinator
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
@@ -38,8 +43,10 @@ class GeneralSettingsFragment : PreferenceFragmentCompat() {
     private val featureFlagProvider: FeatureFlagProvider by inject()
     private val jobManager: K9JobManager by inject()
     private val appLockCoordinator: AppLockCoordinator by inject()
+    private val appLockAuthenticatorFactory: AppLockAuthenticatorFactory by inject()
 
     private var rootKey: String? = null
+    private var isSettingAppLockProgrammatically = false
     private var currentUiState: GeneralSettingsUiState? = null
     private var snackbar: Snackbar? = null
 
@@ -181,6 +188,34 @@ class GeneralSettingsFragment : PreferenceFragmentCompat() {
 
     private fun initializeAppLock() {
         updateAppLockPreference()
+
+        findPreference<TwoStatePreference>(PREFERENCE_APP_LOCK_ENABLED)
+            ?.onPreferenceChangeListener = Preference.OnPreferenceChangeListener { _, newValue ->
+            if (newValue as Boolean) {
+                if (isSettingAppLockProgrammatically) {
+                    isSettingAppLockProgrammatically = false
+                    true
+                } else {
+                    requestAppLockEnable()
+                    false
+                }
+            } else {
+                true
+            }
+        }
+    }
+
+    private fun requestAppLockEnable() {
+        val activity = activity as? androidx.fragment.app.FragmentActivity ?: return
+        val authenticator = appLockAuthenticatorFactory.create(activity)
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            val result = appLockCoordinator.requestEnable(authenticator)
+            if (result is Outcome.Success) {
+                isSettingAppLockProgrammatically = true
+                findPreference<TwoStatePreference>(PREFERENCE_APP_LOCK_ENABLED)?.isChecked = true
+            }
+        }
     }
 
     private fun updateAppLockPreference() {

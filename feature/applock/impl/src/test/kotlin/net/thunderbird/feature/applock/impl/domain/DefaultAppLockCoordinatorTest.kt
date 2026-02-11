@@ -603,6 +603,70 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
+    fun `requestEnable authenticates and enables on success`() = runTest {
+        val testSubject = createCoordinator(
+            config = AppLockConfig(isEnabled = false),
+        )
+        assertThat(testSubject.state.value).isEqualTo(AppLockState.Disabled)
+
+        val result = testSubject.requestEnable(FakeAuthenticator.success())
+
+        assertThat(result).isEqualTo(Outcome.Success(Unit))
+        assertThat(testSubject.config.isEnabled).isTrue()
+        assertThat(testSubject.state.value).isInstanceOf<AppLockState.Unlocked>()
+    }
+
+    @Test
+    fun `requestEnable does not enable on auth failure`() = runTest {
+        val testSubject = createCoordinator(
+            config = AppLockConfig(isEnabled = false),
+        )
+        assertThat(testSubject.state.value).isEqualTo(AppLockState.Disabled)
+
+        val result = testSubject.requestEnable(FakeAuthenticator.failure(AppLockError.Canceled))
+
+        assertThat(result).isEqualTo(Outcome.Failure(AppLockError.Canceled))
+        assertThat(testSubject.config.isEnabled).isFalse()
+        assertThat(testSubject.state.value).isEqualTo(AppLockState.Disabled)
+    }
+
+    @Test
+    fun `requestEnable rejects when auth unavailable`() = runTest {
+        val testSubject = createCoordinator(
+            config = AppLockConfig(isEnabled = false),
+            biometricAvailable = false,
+        )
+
+        val result = testSubject.requestEnable(FakeAuthenticator.success())
+
+        assertThat(result).isEqualTo(Outcome.Failure(AppLockError.NotAvailable))
+        assertThat(testSubject.config.isEnabled).isFalse()
+    }
+
+    @Test
+    fun `requestEnable rejects concurrent calls`() = runTest {
+        val testSubject = createCoordinator(
+            config = AppLockConfig(isEnabled = false),
+        )
+
+        val suspendingAuthenticator = SuspendingAuthenticator()
+        val firstJob = launch {
+            testSubject.requestEnable(suspendingAuthenticator)
+        }
+
+        suspendingAuthenticator.awaitStarted()
+
+        val result = testSubject.requestEnable(FakeAuthenticator.success())
+
+        assertThat(result).isEqualTo(
+            Outcome.Failure(AppLockError.UnableToStart("Authentication already in progress")),
+        )
+
+        suspendingAuthenticator.complete(Outcome.Success(Unit))
+        firstJob.join()
+    }
+
+    @Test
     fun `onAppBackgrounded transitions Failed to Locked`() = runTest {
         val testSubject = createCoordinator(
             config = AppLockConfig(isEnabled = true),

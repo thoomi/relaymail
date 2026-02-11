@@ -126,6 +126,15 @@ internal class FakeAppLockCoordinator(
         }
     }
 
+    override suspend fun requestEnable(authenticator: AppLockAuthenticator): AppLockResult {
+        val result = authenticator.authenticate()
+        if (result is Outcome.Success) {
+            _config = _config.copy(isEnabled = true)
+            _state.value = AppLockState.Unlocked()
+        }
+        return result
+    }
+
     private var isAuthenticating = false
 
     override suspend fun authenticate(authenticator: AppLockAuthenticator): AppLockResult {

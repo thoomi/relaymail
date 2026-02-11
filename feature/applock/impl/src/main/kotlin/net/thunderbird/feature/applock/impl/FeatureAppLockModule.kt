@@ -1,9 +1,11 @@
 package net.thunderbird.feature.applock.impl
 
 import androidx.biometric.BiometricManager
+import net.thunderbird.feature.applock.api.AppLockAuthenticatorFactory
 import net.thunderbird.feature.applock.api.AppLockCoordinator
 import net.thunderbird.feature.applock.api.AppLockGate
 import net.thunderbird.feature.applock.impl.data.AppLockConfigStore
+import net.thunderbird.feature.applock.impl.domain.BiometricAuthenticatorFactory
 import net.thunderbird.feature.applock.impl.domain.DefaultAppLockCoordinator
 import net.thunderbird.feature.applock.impl.domain.DefaultAppLockLifecycleHandler
 import net.thunderbird.feature.applock.impl.domain.DefaultBiometricAvailabilityChecker
@@ -51,6 +53,7 @@ val featureAppLockModule: Module = module {
 
     // Public API - only this is exposed for injection by other modules
     single<AppLockCoordinator> { get<DefaultAppLockCoordinator>() }
+    single<AppLockAuthenticatorFactory> { BiometricAuthenticatorFactory() }
 
     // App lock gate factory for activities
     single<AppLockGate.Factory> {
