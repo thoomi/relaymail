@@ -58,3 +58,4 @@ Use this structure for each new entry:
 - **Why**: Give the fork its own identity distinct from upstream Thunderbird.
 - **Upstream Impact**: long-lived divergence
 - **Links**: `app-thunderbird/src/*/res/`, `core/ui/compose/theme2/thunderbird/`, `core/ui/legacy/theme2/thunderbird/`, `legacy/ui/legacy/src/main/`, `feature/migration/provider/`, `feature/settings/import/`, `images/thunderbird/`
+
