@@ -23,6 +23,10 @@ Fork-specific content such as:
 
 Do not duplicate general project documentation already maintained upstream (architecture, contributor basics, generic release process, etc.). Keep those in existing upstream-aligned docs.
 
+## Installation
+
+See [Installation Guide](./installation.md) for how to install and keep the app updated.
+
 ## Change Log Source of Truth
 
 Ongoing fork differences are tracked in:
