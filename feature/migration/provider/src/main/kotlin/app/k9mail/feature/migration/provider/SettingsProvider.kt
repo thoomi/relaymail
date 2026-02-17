@@ -109,6 +109,12 @@ class SettingsProvider : ContentProvider(), KoinComponent {
             "net.thunderbird.android.beta" to "056bfafb450249502fd9226228704c2529e1b822da06760d47a85c9557741fbd",
             // Thunderbird for Android (daily)
             "net.thunderbird.android.daily" to "c48d74a75c45cd362b0ff2c1e9756f541dee816163e3684a9fd59f6c3ae949b2",
+            // RelayMail (release)
+            "me.aboutblank.relaymail" to "3d45e04295aacc3db94c4c38645170769523a02c1c625428dbfe430fe56e0f29",
+            // RelayMail (beta)
+            "me.aboutblank.relaymail.beta" to "3d45e04295aacc3db94c4c38645170769523a02c1c625428dbfe430fe56e0f29",
+            // RelayMail (daily)
+            "me.aboutblank.relaymail.daily" to "3d45e04295aacc3db94c4c38645170769523a02c1c625428dbfe430fe56e0f29",
         )
 
         val callerPackage = callingPackage ?: return false

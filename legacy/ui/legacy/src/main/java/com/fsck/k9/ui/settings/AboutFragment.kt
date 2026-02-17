@@ -215,6 +215,7 @@ fun AboutScreen(
                 sectionLabel = stringResource(R.string.authors),
                 sectionText = stringResource(R.string.about_app_authors_k9),
                 secondarySectionText = stringResource(R.string.about_app_authors_thunderbird),
+                tertiarySectionText = stringResource(R.string.about_app_authors_relaymail),
                 sectionImageId = DesignSystemR.drawable.ic_group,
                 onClick = displayAuthors,
             )
@@ -286,6 +287,7 @@ fun SectionContent(
     sectionImageId: Int,
     modifier: Modifier = Modifier,
     secondarySectionText: String? = null,
+    tertiarySectionText: String? = null,
     onClick: () -> Unit = {},
 ) {
     Row(
@@ -324,6 +326,15 @@ fun SectionContent(
             )
 
             secondarySectionText?.let {
+                TextBodyMedium(
+                    text = it,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .wrapContentHeight(),
+                )
+            }
+
+            tertiarySectionText?.let {
                 TextBodyMedium(
                     text = it,
                     modifier = Modifier

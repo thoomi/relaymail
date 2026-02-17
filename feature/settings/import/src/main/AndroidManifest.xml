@@ -10,6 +10,9 @@
         <package android:name="net.thunderbird.android"/>
         <package android:name="net.thunderbird.android.beta"/>
         <package android:name="net.thunderbird.android.daily"/>
+        <package android:name="me.aboutblank.relaymail"/>
+        <package android:name="me.aboutblank.relaymail.beta"/>
+        <package android:name="me.aboutblank.relaymail.daily"/>
     </queries>
 
     <application>

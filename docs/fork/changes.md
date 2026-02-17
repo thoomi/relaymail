@@ -48,3 +48,13 @@ Use this structure for each new entry:
 - **Why**: Provides a simple release mechanism for the fork without the complexity of the upstream shippable builds workflow.
 - **Upstream Impact**: none
 - **Links**: `.github/workflows/fork-release.yml`
+
+---
+
+### 2026-02-18
+
+- **Area**: App Behavior
+- **Change**: Rebranded app from "Thunderbird" to "RelayMail" — updated app name, launcher icons (all variants), logo drawables, About screen (logo, authors, URLs), notification icon, User-Agent header, settings import allowlist, and migration provider URI.
+- **Why**: Give the fork its own identity distinct from upstream Thunderbird.
+- **Upstream Impact**: long-lived divergence
+- **Links**: `app-thunderbird/src/*/res/`, `core/ui/compose/theme2/thunderbird/`, `core/ui/legacy/theme2/thunderbird/`, `legacy/ui/legacy/src/main/`, `feature/migration/provider/`, `feature/settings/import/`, `images/thunderbird/`
