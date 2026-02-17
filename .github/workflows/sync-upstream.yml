@@ -1,0 +1,82 @@
+name: Sync Upstream
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Every Monday at 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream remote and fetch
+        run: |
+          git remote add upstream https://github.com/thunderbird/thunderbird-android.git
+          git fetch upstream main
+
+      - name: Attempt merge
+        id: merge
+        run: |
+          if git merge upstream/main --no-edit; then
+            echo "conflict=false" >> "$GITHUB_OUTPUT"
+          else
+            git merge --abort
+            echo "conflict=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Push to main (no conflicts)
+        if: steps.merge.outputs.conflict == 'false'
+        run: git push origin main
+
+      - name: Create conflict PR
+        if: steps.merge.outputs.conflict == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="sync/upstream-$(date +%Y-%m-%d)"
+
+          # Check if a sync PR already exists
+          EXISTING=$(gh pr list --head "$BRANCH" --state open --json number --jq 'length')
+          if [ "$EXISTING" -gt 0 ]; then
+            echo "A sync PR for $BRANCH already exists. Skipping."
+            exit 0
+          fi
+
+          git checkout -b "$BRANCH" upstream/main
+          git push -u origin "$BRANCH"
+
+          gh pr create \
+            --title "Upstream sync — manual merge needed" \
+            --body "$(cat <<'EOF'
+          Automated upstream sync encountered merge conflicts.
+
+          **What happened:**
+          - Attempted to merge `thunderbird/thunderbird-android:main` into `main`
+          - Merge conflicts were detected
+
+          **What to do:**
+          1. Check out this branch locally
+          2. Merge `main` into this branch (or rebase) and resolve conflicts
+          3. Push and merge this PR
+
+          _Created automatically by the sync-upstream workflow._
+          EOF
+          )" \
+            --base main \
+            --head "$BRANCH"
