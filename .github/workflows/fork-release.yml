@@ -24,7 +24,7 @@ jobs:
 
       - name: Sign APK
         id: sign
-        uses: noriban/sign-android-release@v5
+        uses: noriban/sign-android-release@a0600624488748d90ba893de54d52d41417dc64f # v5
         with:
           releaseDirectory: app-thunderbird/build/outputs/apk/foss/release
           signingKeyBase64: ${{ secrets.SIGNING_KEY }}
@@ -33,7 +33,7 @@ jobs:
           keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
 
       - name: Upload to GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2
         with:
           files: ${{ steps.sign.outputs.signedReleaseFile }}
           generate_release_notes: true
