@@ -7,6 +7,8 @@ generator, in this case, **mdbook**. It defines the structure and navigation of 
 
 ---
 
+- [Fork](fork/README.md)
+  - [Fork Changes Log](fork/changes.md)
 - [Contributing](CONTRIBUTING.md)
   - [Development Environment](contributing/development-environment.md)
   - [Contribution Workflow](contributing/contribution-workflow.md)

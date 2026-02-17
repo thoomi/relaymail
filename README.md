@@ -64,6 +64,12 @@ We welcome contributions from everyone.
 - Thunderbird is supported solely by financial contributions from users like you. [Make a financial contribution today](https://www.thunderbird.net/donate/mobile/?form=tfa)!
 - Make sure to check out the [Mozilla Community Participation Guidelines](https://www.mozilla.org/about/governance/policies/participation/).
 
+## Fork-specific Documentation
+
+If you are working on this fork, fork-only behavior and divergence from upstream are documented in:
+
+- [Fork Documentation](docs/fork/README.md)
+
 ### Architecture Decision Records (ADR)
 
 We use [Architecture Decision Records](https://adr.github.io/) to document the architectural decisions made in the
