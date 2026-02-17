@@ -32,3 +32,4 @@ Use this structure for each new entry:
 - **Why**: Keep the fork up to date without manual fetch/merge. On clean merges it pushes directly to `main`; on conflicts it opens a PR for manual resolution.
 - **Upstream Impact**: none
 - **Links**: `.github/workflows/sync-upstream.yml`
+
