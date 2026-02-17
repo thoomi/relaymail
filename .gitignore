@@ -48,3 +48,6 @@ captures/
 adb-screenshots/
 # Extracted eml files
 eml-files/
+
+# Agent instructions and plan files
+.agents/
