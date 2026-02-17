@@ -11,8 +11,8 @@ android {
     namespace = "net.thunderbird.android"
 
     defaultConfig {
-        applicationId = "net.thunderbird.android"
-        testApplicationId = "net.thunderbird.android.tests"
+        applicationId = "me.aboutblank.relaymail"
+        testApplicationId = "me.aboutblank.relaymail.tests"
 
         versionCode = 4
         versionName = "18.0"

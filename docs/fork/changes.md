@@ -25,7 +25,7 @@ Use this structure for each new entry:
 - **Upstream Impact**: none
 - **Links**: `docs/fork/README.md`, `docs/fork/changes.md`, `docs/SUMMARY.md`, `README.md`
 
-### 2026-02-17
+---
 
 - **Area**: CI
 - **Change**: Added `sync-upstream.yml` workflow to automatically sync the fork's `main` branch with upstream `thunderbird/thunderbird-android`.
@@ -33,3 +33,18 @@ Use this structure for each new entry:
 - **Upstream Impact**: none
 - **Links**: `.github/workflows/sync-upstream.yml`
 
+---
+
+- **Area**: Build
+- **Change**: Changed `applicationId` from `net.thunderbird.android` to `me.aboutblank.relaymail`.
+- **Why**: Allows installing this fork alongside the original Thunderbird app on the same device.
+- **Upstream Impact**: long-lived divergence
+- **Links**: `app-thunderbird/build.gradle.kts`
+
+---
+
+- **Area**: CI
+- **Change**: Added `fork-release.yml` workflow that builds, signs, and publishes a FOSS release APK to GitHub Releases on tag push (`v*`).
+- **Why**: Provides a simple release mechanism for the fork without the complexity of the upstream shippable builds workflow.
+- **Upstream Impact**: none
+- **Links**: `.github/workflows/fork-release.yml`

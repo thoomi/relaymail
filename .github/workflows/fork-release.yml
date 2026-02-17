@@ -1,0 +1,36 @@
+name: Fork Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Gradle
+        uses: ./.github/actions/setup-gradle
+
+      - name: Build unsigned APK
+        run: ./gradlew :app-thunderbird:assembleFossRelease
+
+      - name: Sign APK
+        id: sign
+        uses: noriban/sign-android-release@v5
+        with:
+          releaseDirectory: app-thunderbird/build/outputs/apk/foss/release
+          signingKeyBase64: ${{ secrets.SIGNING_KEY }}
+          alias: ${{ secrets.KEY_ALIAS }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+          keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.sign.outputs.signedFile }}
+          generate_release_notes: true
