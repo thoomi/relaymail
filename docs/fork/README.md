@@ -43,6 +43,6 @@ Pattern:
 
 Example for this fork:
 
-`https://github.com/thoomi/thunderbird-android/compare/main...thunderbird:main`
+`https://github.com/thoomi/relaymail/compare/main...thunderbird:main`
 
 Adjust owner/branch names when comparing non-`main` branches.
