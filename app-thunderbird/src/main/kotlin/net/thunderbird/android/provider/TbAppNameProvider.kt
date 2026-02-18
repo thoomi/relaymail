@@ -17,5 +17,5 @@ internal class TbAppNameProvider(
         context.getString(R.string.brand_name)
     }
 
-    override val filePrefix: String = "thunderbird"
+    override val filePrefix: String = "relaymail"
 }

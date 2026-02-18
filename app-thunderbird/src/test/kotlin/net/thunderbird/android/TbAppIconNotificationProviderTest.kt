@@ -7,11 +7,11 @@ import org.junit.Test
 
 class TbAppIconNotificationProviderTest {
     @Test
-    fun `provides correct Thunderbird notification icon`() {
+    fun `provides correct notification icon`() {
         val provider = TbAppIconNotificationProvider()
         val icon = provider.pushNotificationIcon
 
         assertThat(icon)
-            .isEqualTo(app.k9mail.core.ui.legacy.theme2.thunderbird.R.drawable.ic_logo_thunderbird_white)
+            .isEqualTo(net.thunderbird.android.R.mipmap.ic_launcher_monochrome)
     }
 }

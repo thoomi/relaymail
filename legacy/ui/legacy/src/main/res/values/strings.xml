@@ -5,6 +5,7 @@
     <!-- Used in the about dialog -->
     <string name="about_app_authors_k9">The K-9 Dog Walkers</string>
     <string name="about_app_authors_thunderbird">Thunderbird Mobile Team</string>
+    <string name="about_app_authors_relaymail">RelayMail Team</string>
     <string name="open_camera">Open Camera</string>
     <string name="attach_file">Attach File</string>
     <string name="camera_permission_denied">Camera Permission Denied! Unable to take photo</string>

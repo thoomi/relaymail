@@ -79,6 +79,12 @@ internal class ImportAppFetcher(
             AppVersion("net.thunderbird.android.beta", 4),
             // Thunderbird for Android (daily)
             AppVersion("net.thunderbird.android.daily", 1),
+            // RelayMail (release)
+            AppVersion("me.aboutblank.relaymail", 1),
+            // RelayMail (beta)
+            AppVersion("me.aboutblank.relaymail.beta", 1),
+            // RelayMail (daily)
+            AppVersion("me.aboutblank.relaymail.daily", 1),
         )
     }
 }
