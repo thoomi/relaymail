@@ -59,3 +59,11 @@ Use this structure for each new entry:
 - **Upstream Impact**: long-lived divergence
 - **Links**: `app-thunderbird/src/*/res/`, `core/ui/compose/theme2/thunderbird/`, `core/ui/legacy/theme2/thunderbird/`, `legacy/ui/legacy/src/main/`, `feature/migration/provider/`, `feature/settings/import/`, `images/thunderbird/`
 
+---
+
+- **Area**: CI / Docs
+- **Change**: Replaced upstream `deploy-docs.yml` (mdbook developer docs) with `deploy-site.yml` — a GitHub Pages workflow that deploys a static one-pager from `site/`. Added `site/index.html` (landing page), `site/CNAME` (custom domain), and `site/logo.png`.
+- **Why**: Provide a simple public landing page at `relaymail.aboutblank.me` with install instructions and an Obtainium deep link, instead of hosting upstream developer documentation.
+- **Upstream Impact**: long-lived divergence
+- **Links**: `.github/workflows/deploy-site.yml`, `site/index.html`, `site/CNAME`, `site/logo.png`
+
