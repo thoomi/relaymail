@@ -7,6 +7,9 @@ import net.thunderbird.feature.applock.api.AppLockCoordinator
 import net.thunderbird.feature.applock.api.AppLockGate
 import net.thunderbird.feature.applock.api.AppLockSettingsNavigation
 import net.thunderbird.feature.applock.impl.data.AppLockConfigStore
+import net.thunderbird.feature.applock.impl.domain.AppLockAvailability
+import net.thunderbird.feature.applock.impl.domain.AppLockConfigRepository
+import net.thunderbird.feature.applock.impl.domain.AppLockLifecycleHandler
 import net.thunderbird.feature.applock.impl.domain.BiometricAuthenticatorFactory
 import net.thunderbird.feature.applock.impl.domain.DefaultAppLockCoordinator
 import net.thunderbird.feature.applock.impl.domain.DefaultAppLockLifecycleHandler
@@ -29,34 +32,33 @@ import org.koin.dsl.module
  */
 val featureAppLockModule: Module = module {
     // Internal components
-    single {
+    single { BiometricManager.from(androidApplication()) }
+
+    single<AppLockConfigRepository> {
         AppLockConfigStore(
             context = androidContext(),
         )
     }
 
-    single {
+    single<AppLockAvailability> {
         DefaultBiometricAvailabilityChecker(
-            biometricManager = BiometricManager.from(androidApplication()),
+            biometricManager = get(),
         )
     }
 
-    single {
+    single<AppLockLifecycleHandler> {
         DefaultAppLockLifecycleHandler(
             application = androidApplication(),
         )
     }
 
-    single {
+    single<AppLockCoordinator> {
         DefaultAppLockCoordinator(
-            configRepository = get<AppLockConfigStore>(),
-            availability = get<DefaultBiometricAvailabilityChecker>(),
-            lifecycleHandler = get<DefaultAppLockLifecycleHandler>(),
+            configRepository = get(),
+            availability = get(),
+            lifecycleHandler = get(),
         )
     }
-
-    // Public API - only this is exposed for injection by other modules
-    single<AppLockCoordinator> { get<DefaultAppLockCoordinator>() }
     single<AppLockAuthenticatorFactory> { BiometricAuthenticatorFactory() }
 
     // App lock gate factory for activities
