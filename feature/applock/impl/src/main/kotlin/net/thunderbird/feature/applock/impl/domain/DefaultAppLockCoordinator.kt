@@ -115,9 +115,18 @@ internal class DefaultAppLockCoordinator(
             is AppLockState.Unlocked -> {
                 _state.value = current.copy(lastHiddenAtElapsedMillis = clock())
             }
-            is AppLockState.Unlocking, is AppLockState.Failed -> {
-                // Cancel unlock attempt or clear failure when backgrounded
-                // This allows retry on next foreground
+            is AppLockState.Unlocking -> {
+                // Don't reset when authentication is actively in progress (device credential flow).
+                // The auth coroutine will set the correct state when it completes:
+                //   success  → Unlocked
+                //   ERROR_CANCELED / user exits → Interrupted → Locked
+                // Only reset when no auth is running (e.g. user backgrounded before prompt appeared).
+                if (!isAuthenticating) {
+                    _state.value = AppLockState.Locked
+                }
+            }
+            is AppLockState.Failed -> {
+                // Cancel failure state when backgrounded — allows retry on next foreground
                 _state.value = AppLockState.Locked
             }
             AppLockState.Disabled, AppLockState.Locked, is AppLockState.Unavailable -> Unit
