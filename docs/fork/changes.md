@@ -67,3 +67,21 @@ Use this structure for each new entry:
 - **Upstream Impact**: long-lived divergence
 - **Links**: `.github/workflows/deploy-site.yml`, `site/index.html`, `site/CNAME`, `site/logo.png`
 
+---
+
+### 2026-02-24
+
+- **Area**: Release
+- **Change**: Added `scripts/create-version-tag.sh` to automate Git tagging based on the current `versionName` in `app-thunderbird`.
+- **Why**: Ensures the release tag matches the app version for consistent release tracking and automation.
+- **Upstream Impact**: none
+- **Links**: `scripts/create-version-tag.sh`
+
+---
+
+- **Area**: Build
+- **Change**: Renamed APK output files to `relaymail-<variantName>.apk` (e.g. `relaymail-fossDebug.apk`) and updated internal `CLIENT_INFO_APP_NAME` to "RelayMail". APK renaming uses a `PackageApplication.doLast` hook — `base.archivesName` and `VariantOutput.outputFileName` are both ineffective in AGP 8.x.
+- **Why**: Align generated artifacts and internal metadata with the RelayMail brand identity.
+- **Upstream Impact**: long-lived divergence
+- **Links**: `app-thunderbird/build.gradle.kts`
+
