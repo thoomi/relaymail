@@ -17,6 +17,7 @@ jobs:
       - name: Checkout fork
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          token: ${{ secrets.SYNC_UPSTREAM_TOKEN }}
           ref: main
           fetch-depth: 0
 
@@ -47,7 +48,7 @@ jobs:
       - name: Create conflict PR
         if: steps.merge.outputs.conflict == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.SYNC_UPSTREAM_TOKEN }}
         run: |
           BRANCH="sync/upstream-$(date +%Y-%m-%d)"
 
