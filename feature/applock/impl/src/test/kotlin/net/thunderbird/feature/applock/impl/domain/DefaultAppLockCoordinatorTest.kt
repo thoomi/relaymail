@@ -567,7 +567,7 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
-    fun `should require re-auth when backgrounded during credential activity`() = runTest {
+    fun `should complete authentication when backgrounded during credential activity`() = runTest {
         val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = true),
         )
@@ -583,17 +583,45 @@ class DefaultAppLockCoordinatorTest {
         }
         suspendingAuthenticator.awaitStarted()
 
-        // App goes to background (e.g., user switches away) — coordinator resets to Locked
+        // App goes to background because the system credential activity caused the host to stop.
+        // Since authentication is actively in progress, the coordinator must NOT reset to Locked.
         testSubject.onAppBackgrounded()
-        assertThat(testSubject.state.value).isEqualTo(AppLockState.Locked)
+        assertThat(testSubject.state.value).isInstanceOf<AppLockState.Unlocking>()
 
-        // The credential activity completes successfully, but coordinator already moved to Locked
+        // The credential activity completes successfully — auth coroutine resumes and applies result
         suspendingAuthenticator.complete(Outcome.Success(Unit))
         authJob.join()
 
-        // State remains Locked — the successful auth result is discarded because the coordinator
-        // was no longer in Unlocking state. This is intentional: backgrounding invalidates any
-        // in-flight authentication, requiring the user to re-authenticate on next foreground.
+        // State becomes Unlocked — the overlay is removed
+        assertThat(testSubject.state.value).isInstanceOf<AppLockState.Unlocked>()
+    }
+
+    @Test
+    fun `should lock when user cancels credential activity after backgrounding`() = runTest {
+        val testSubject = createTestSubject(
+            config = AppLockConfig(isEnabled = true),
+        )
+
+        // Start unlock flow
+        testSubject.ensureUnlocked()
+        assertThat(testSubject.state.value).isInstanceOf<AppLockState.Unlocking>()
+
+        // Simulate: auth is in progress (credential activity launched)
+        val suspendingAuthenticator = SuspendingAuthenticator()
+        val authJob = launch {
+            testSubject.authenticate(suspendingAuthenticator)
+        }
+        suspendingAuthenticator.awaitStarted()
+
+        // App goes to background; coordinator preserves Unlocking because auth is in progress
+        testSubject.onAppBackgrounded()
+        assertThat(testSubject.state.value).isInstanceOf<AppLockState.Unlocking>()
+
+        // User pressed Home without completing PIN entry — system sends ERROR_CANCELED (Interrupted)
+        suspendingAuthenticator.complete(Outcome.Failure(AppLockError.Interrupted))
+        authJob.join()
+
+        // State becomes Locked — overlay is kept, user must re-authenticate
         assertThat(testSubject.state.value).isEqualTo(AppLockState.Locked)
     }
 
