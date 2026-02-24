@@ -32,8 +32,16 @@ jobs:
           keyPassword: ${{ secrets.KEY_PASSWORD }}
           keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
 
+      - name: Rename APK for release
+        id: rename
+        run: |
+          SIGNED="${{ steps.sign.outputs.signedReleaseFile }}"
+          RENAMED="$(dirname "$SIGNED")/relaymail-${{ github.ref_name }}.apk"
+          mv "$SIGNED" "$RENAMED"
+          echo "apk=$RENAMED" >> $GITHUB_OUTPUT
+
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2
         with:
-          files: ${{ steps.sign.outputs.signedReleaseFile }}
+          files: ${{ steps.rename.outputs.apk }}
           generate_release_notes: true

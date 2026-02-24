@@ -201,15 +201,6 @@ androidComponents {
     }
 }
 
-tasks.withType<com.android.build.gradle.tasks.PackageApplication>().configureEach {
-    val variantName = name.removePrefix("package").let { s -> s.first().lowercaseChar() + s.drop(1) }
-    doLast {
-        outputDirectory.get().asFile.listFiles()
-            ?.filter { it.extension == "apk" }
-            ?.forEach { apk -> apk.renameTo(apk.resolveSibling("relaymail-$variantName.apk")) }
-    }
-}
-
 // Initialize placeholders for the product flavor and build type combinations needed for dependency declarations.
 // They are required to avoid "Unresolved configuration" errors.
 val fullDebugImplementation by configurations.creating
