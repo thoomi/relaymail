@@ -17,7 +17,7 @@ android {
         versionCode = 4
         versionName = "18.0"
 
-        buildConfigField("String", "CLIENT_INFO_APP_NAME", "\"Thunderbird for Android\"")
+        buildConfigField("String", "CLIENT_INFO_APP_NAME", "\"RelayMail\"")
     }
 
     androidResources {
@@ -197,9 +197,16 @@ android {
 
 androidComponents {
     onVariants(selector().withBuildType("release")) { variant ->
-        variant.packaging.resources.excludes.addAll(
-            "META-INF/*.version",
-        )
+        variant.packaging.resources.excludes.add("META-INF/*.version")
+    }
+}
+
+tasks.withType<com.android.build.gradle.tasks.PackageApplication>().configureEach {
+    val variantName = name.removePrefix("package").let { s -> s.first().lowercaseChar() + s.drop(1) }
+    doLast {
+        outputDirectory.get().asFile.listFiles()
+            ?.filter { it.extension == "apk" }
+            ?.forEach { apk -> apk.renameTo(apk.resolveSibling("relaymail-$variantName.apk")) }
     }
 }
 
