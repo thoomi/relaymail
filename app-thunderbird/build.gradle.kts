@@ -201,7 +201,6 @@ androidComponents {
     }
 }
 
-
 // Initialize placeholders for the product flavor and build type combinations needed for dependency declarations.
 // They are required to avoid "Unresolved configuration" errors.
 val fullDebugImplementation by configurations.creating
