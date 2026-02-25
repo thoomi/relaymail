@@ -254,6 +254,35 @@ class DefaultAppLockGateTest {
     }
 
     @Test
+    fun `should relaunch auth after screen off completes stale auth job`() {
+        // D1: for the first auth
+        coordinator.suspendOnAuthenticate()
+
+        val controller = launchActivity(AppLockState.Locked)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertThat(coordinator.state.value).isInstanceOf<AppLockState.Unlocking>()
+        val authCountAfterFirstAttempt = coordinator.authenticateCallCount
+
+        // Screen turns off while auth is in progress — with fix, state stays Unlocking
+        coordinator.onScreenOff()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertThat(coordinator.state.value).isInstanceOf<AppLockState.Unlocking>()
+
+        // Queue D2 before completing D1 so the second auth will suspend instead of looping
+        coordinator.suspendOnAuthenticate()
+
+        // Auth is dismissed by system (Interrupted → Locked via resolveAuthResult)
+        coordinator.completeAuthenticate(Outcome.Failure(AppLockError.Interrupted))
+        shadowOf(Looper.getMainLooper()).idle()
+
+        // stateObserver sees Locked → ensureUnlocked → new auth (suspended on D2)
+        assertThat(coordinator.authenticateCallCount).isEqualTo(authCountAfterFirstAttempt + 1)
+        assertThat(findOverlay(controller.get())).isNotNull()
+    }
+
+    @Test
     fun `should survive credential flow across pause-stop-start-resume`() {
         coordinator.suspendOnAuthenticate()
 

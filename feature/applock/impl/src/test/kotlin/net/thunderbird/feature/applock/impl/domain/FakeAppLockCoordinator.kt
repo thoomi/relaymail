@@ -52,20 +52,23 @@ internal class FakeAppLockCoordinator(
     var lastSettings: AppLockConfig? = null
         private set
 
-    private var authDeferred: CompletableDeferred<AppLockResult>? = null
+    private var currentAuthDeferred: CompletableDeferred<AppLockResult>? = null
+    private val pendingAuthDeferreds = ArrayDeque<CompletableDeferred<AppLockResult>>()
     private var nextAttemptId = 0L
     private var stateAfterRefresh: AppLockState? = null
     private var isAuthenticating = false
 
     /**
-     * Makes [authenticate] suspend until [completeAuthenticate] is called.
+     * Makes the next [authenticate] call suspend until [completeAuthenticate] is called.
+     * Each call to this method queues one additional suspend point, so calling it twice
+     * will make two successive [authenticate] calls each suspend independently.
      */
     fun suspendOnAuthenticate() {
-        authDeferred = CompletableDeferred()
+        pendingAuthDeferreds.addLast(CompletableDeferred())
     }
 
     fun completeAuthenticate(result: AppLockResult) {
-        authDeferred?.complete(result)
+        currentAuthDeferred?.complete(result)
     }
 
     override fun onAppForegrounded() {
@@ -78,8 +81,9 @@ internal class FakeAppLockCoordinator(
 
     override fun onScreenOff() {
         onScreenOffCallCount++
-        if (_state.value is AppLockState.Unlocked || _state.value is AppLockState.Unlocking) {
-            _state.value = AppLockState.Locked
+        when {
+            _state.value is AppLockState.Unlocked -> _state.value = AppLockState.Locked
+            _state.value is AppLockState.Unlocking && !isAuthenticating -> _state.value = AppLockState.Locked
         }
     }
 
@@ -128,18 +132,27 @@ internal class FakeAppLockCoordinator(
         }
 
         authenticateCallCount++
-        _state.value as? AppLockState.Unlocking
+        val unlocking = _state.value as? AppLockState.Unlocking
             ?: return Outcome.Failure(AppLockError.UnableToStart("Not in Unlocking state"))
 
         isAuthenticating = true
         try {
-            val result = authDeferred?.await() ?: authResult
-            _state.value = when (result) {
-                is Outcome.Success -> AppLockState.Unlocked()
-                is Outcome.Failure -> AppLockState.Failed(result.error)
+            val deferred = pendingAuthDeferreds.removeFirstOrNull()
+            currentAuthDeferred = deferred
+            val result = deferred?.await() ?: authResult
+            currentAuthDeferred = null
+            // Only apply result if attemptId still matches (mirrors DefaultAppLockCoordinator)
+            if ((_state.value as? AppLockState.Unlocking)?.attemptId == unlocking.attemptId) {
+                _state.value = when {
+                    result is Outcome.Success -> AppLockState.Unlocked()
+                    result is Outcome.Failure && result.error is AppLockError.Interrupted ->
+                        AppLockState.Locked  // matches resolveAuthResult() in real coordinator
+                    else -> AppLockState.Failed((result as Outcome.Failure).error)
+                }
             }
             return result
         } finally {
+            currentAuthDeferred = null
             isAuthenticating = false
         }
     }

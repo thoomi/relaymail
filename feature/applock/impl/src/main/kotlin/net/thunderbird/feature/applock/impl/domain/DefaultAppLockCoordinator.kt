@@ -138,10 +138,20 @@ internal class DefaultAppLockCoordinator(
         val currentConfig = config
         if (currentConfig.isEnabled && isAuthenticationAvailable) {
             when (_state.value) {
-                is AppLockState.Unlocked, is AppLockState.Unlocking -> {
+                is AppLockState.Unlocked -> {
                     _state.value = AppLockState.Locked
                 }
-                AppLockState.Disabled, AppLockState.Locked, is AppLockState.Failed, is AppLockState.Unavailable -> Unit
+                is AppLockState.Unlocking -> {
+                    // Don't interrupt active authentication — the BiometricPrompt will be
+                    // dismissed by the system (ERROR_CANCELED → Interrupted → Locked) via
+                    // resolveAuthResult(). Forcing Locked here while isAuthenticating==true
+                    // creates a stale-attemptId race that leaves the UI in a stuck Unlocking state.
+                    if (!isAuthenticating) {
+                        _state.value = AppLockState.Locked
+                    }
+                }
+                AppLockState.Disabled, AppLockState.Locked,
+                is AppLockState.Failed, is AppLockState.Unavailable -> Unit
             }
         }
     }

@@ -243,6 +243,31 @@ class DefaultAppLockCoordinatorTest {
     }
 
     @Test
+    fun `should keep Unlocking state on screen off when authentication is in progress`() = runTest {
+        val testSubject = createTestSubject(config = AppLockConfig(isEnabled = true))
+        testSubject.ensureUnlocked()
+
+        val suspendingAuthenticator = SuspendingAuthenticator()
+        val authJob = launch {
+            testSubject.authenticate(suspendingAuthenticator)
+        }
+
+        // Wait for auth to start — ensures isAuthenticating = true before onScreenOff
+        suspendingAuthenticator.awaitStarted()
+
+        testSubject.onScreenOff()
+
+        // State must stay Unlocking — the BiometricPrompt result (Interrupted) will drive it to Locked
+        assertThat(testSubject.state.value).isInstanceOf<AppLockState.Unlocking>()
+
+        suspendingAuthenticator.complete(Outcome.Failure(AppLockError.Interrupted))
+        authJob.join()
+
+        // After auth completes with Interrupted, state transitions to Locked
+        assertThat(testSubject.state.value).isEqualTo(AppLockState.Locked)
+    }
+
+    @Test
     fun `should do nothing when screen off and Disabled`() = runTest {
         val testSubject = createTestSubject(
             config = AppLockConfig(isEnabled = false),
