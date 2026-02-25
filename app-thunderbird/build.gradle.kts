@@ -15,7 +15,7 @@ android {
         testApplicationId = "me.aboutblank.relaymail.tests"
 
         versionCode = 4
-        versionName = "18.0"
+        versionName = "18.0.1"
 
         buildConfigField("String", "CLIENT_INFO_APP_NAME", "\"RelayMail\"")
     }
