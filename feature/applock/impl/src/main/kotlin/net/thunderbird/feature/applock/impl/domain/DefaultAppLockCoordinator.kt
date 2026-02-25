@@ -151,7 +151,8 @@ internal class DefaultAppLockCoordinator(
                     }
                 }
                 AppLockState.Disabled, AppLockState.Locked,
-                is AppLockState.Failed, is AppLockState.Unavailable -> Unit
+                is AppLockState.Failed, is AppLockState.Unavailable,
+                -> Unit
             }
         }
     }

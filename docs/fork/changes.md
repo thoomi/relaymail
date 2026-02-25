@@ -85,3 +85,13 @@ Use this structure for each new entry:
 - **Upstream Impact**: long-lived divergence
 - **Links**: `app-thunderbird/build.gradle.kts`
 
+---
+
+### 2026-02-25
+
+- **Area**: App Behavior
+- **Change**: Fixed a race condition in `DefaultAppLockCoordinator.onScreenOff()` that could leave the app lock UI permanently stuck — showing the plain overlay with no auth prompt and no way to proceed. The fix adds an `isAuthenticating` guard to the `Unlocking` branch of `onScreenOff()`, mirroring the existing guard in `onAppBackgrounded()`. Also improved `FakeAppLockCoordinator` accuracy: added an `attemptId` guard and correct `Interrupted → Locked` mapping to `authenticate()`, and an `isAuthenticating` guard to `onScreenOff()`. Added regression tests in `DefaultAppLockCoordinatorTest` and `DefaultAppLockGateTest`.
+- **Why**: When the screen turned off during active biometric/credential authentication, `onScreenOff()` unconditionally forced state to `Locked`. This created a stale `attemptId` — the gate's observer called `ensureUnlocked()` producing `Unlocking(N+1)`, but `launchAuthentication()` returned early because the old auth job was still active. When the old job completed, the `attemptId` mismatch caused its result to be discarded, leaving the coordinator stuck in `Unlocking(N+1)` with no active auth job. With the fix, `onScreenOff()` skips the forced transition when `isAuthenticating` is true; the system-dismissed BiometricPrompt fires `ERROR_CANCELED → Interrupted → Locked` naturally via `resolveAuthResult()`, with the correct `attemptId` intact.
+- **Upstream Impact**: temporary divergence — suitable for upstreaming
+- **Links**: `feature/applock/impl/src/main/kotlin/…/domain/DefaultAppLockCoordinator.kt`, `feature/applock/impl/src/test/kotlin/…/domain/FakeAppLockCoordinator.kt`, `feature/applock/impl/src/test/kotlin/…/domain/DefaultAppLockCoordinatorTest.kt`, `feature/applock/impl/src/test/kotlin/…/ui/DefaultAppLockGateTest.kt`
+
