@@ -49,7 +49,6 @@ Use this structure for each new entry:
 - **Upstream Impact**: none
 - **Links**: `.github/workflows/fork-release.yml`
 
-
 ### 2026-02-18
 
 - **Area**: App Behavior
@@ -65,7 +64,6 @@ Use this structure for each new entry:
 - **Why**: Provide a simple public landing page at `relaymail.aboutblank.me` with install instructions and an Obtainium deep link, instead of hosting upstream developer documentation.
 - **Upstream Impact**: long-lived divergence
 - **Links**: `.github/workflows/deploy-site.yml`, `site/index.html`, `site/CNAME`, `site/logo.png`
-
 
 ### 2026-02-24
 
@@ -83,7 +81,6 @@ Use this structure for each new entry:
 - **Upstream Impact**: long-lived divergence
 - **Links**: `app-thunderbird/build.gradle.kts`
 
-
 ### 2026-02-25
 
 - **Area**: App Behavior
@@ -91,7 +88,6 @@ Use this structure for each new entry:
 - **Why**: When the screen turned off during active biometric/credential authentication, `onScreenOff()` unconditionally forced state to `Locked`. This created a stale `attemptId` — the gate's observer called `ensureUnlocked()` producing `Unlocking(N+1)`, but `launchAuthentication()` returned early because the old auth job was still active. When the old job completed, the `attemptId` mismatch caused its result to be discarded, leaving the coordinator stuck in `Unlocking(N+1)` with no active auth job. With the fix, `onScreenOff()` skips the forced transition when `isAuthenticating` is true; the system-dismissed BiometricPrompt fires `ERROR_CANCELED → Interrupted → Locked` naturally via `resolveAuthResult()`, with the correct `attemptId` intact.
 - **Upstream Impact**: temporary divergence — suitable for upstreaming
 - **Links**: `feature/applock/impl/src/main/kotlin/…/domain/DefaultAppLockCoordinator.kt`, `feature/applock/impl/src/test/kotlin/…/domain/FakeAppLockCoordinator.kt`, `feature/applock/impl/src/test/kotlin/…/domain/DefaultAppLockCoordinatorTest.kt`, `feature/applock/impl/src/test/kotlin/…/ui/DefaultAppLockGateTest.kt`
-
 
 ### 2026-02-26
 
