@@ -6,20 +6,33 @@ import assertk.assertions.isEqualTo
 import assertk.assertions.isFalse
 import assertk.assertions.isInstanceOf
 import assertk.assertions.isTrue
+import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
+import kotlin.test.Test
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import net.thunderbird.core.outcome.Outcome
-import net.thunderbird.core.testing.coroutines.MainDispatcherRule
+import net.thunderbird.core.testing.coroutines.MainDispatcherHelper
 import net.thunderbird.feature.applock.api.AppLockConfig
 import net.thunderbird.feature.applock.impl.domain.FakeAppLockCoordinator
 import net.thunderbird.feature.applock.impl.ui.settings.AppLockSettingsContract.Effect
 import net.thunderbird.feature.applock.impl.ui.settings.AppLockSettingsContract.Event
-import org.junit.Rule
-import org.junit.Test
 
 class AppLockSettingsViewModelTest {
 
-    @get:Rule
-    val mainDispatcherRule = MainDispatcherRule()
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val mainDispatcher = MainDispatcherHelper(UnconfinedTestDispatcher())
+
+    @BeforeTest
+    fun setUp() {
+        mainDispatcher.setUp()
+    }
+
+    @AfterTest
+    fun tearDown() {
+        mainDispatcher.tearDown()
+    }
 
     @Test
     fun `should initialize state from coordinator config`() {

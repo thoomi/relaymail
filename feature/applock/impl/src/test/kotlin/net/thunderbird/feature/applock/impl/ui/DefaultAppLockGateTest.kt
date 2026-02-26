@@ -283,6 +283,34 @@ class DefaultAppLockGateTest {
     }
 
     @Test
+    fun `should relaunch auth when stale job ends while already resumed`() {
+        // Suspend first auth attempt
+        coordinator.suspendOnAuthenticate()
+
+        val controller = launchActivity(AppLockState.Locked)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertThat(coordinator.state.value).isInstanceOf<AppLockState.Unlocking>()
+        val authCountAfterFirstAttempt = coordinator.authenticateCallCount
+
+        // Simulate: only a pause/resume cycle (no onStop), then ERROR_CANCELED fires after onResume.
+        // Queue D2 before completing D1 so the second auth also suspends (avoids the infinite retry
+        // loop that would occur if auth immediately succeeded/failed again).
+        coordinator.suspendOnAuthenticate()
+
+        // Complete first auth as Interrupted (as ERROR_CANCELED would do).
+        // The stateObserver fires for Locked → ensureUnlocked → Unlocking(1) while D1 still active
+        // → launchAuthentication returns early. D1's finally then triggers recovery → D2 starts.
+        coordinator.completeAuthenticate(Outcome.Failure(AppLockError.Interrupted))
+        shadowOf(Looper.getMainLooper()).idle()
+
+        // Recovery must have launched a second authenticate call
+        assertThat(coordinator.authenticateCallCount).isEqualTo(authCountAfterFirstAttempt + 1)
+        assertThat(coordinator.state.value).isInstanceOf<AppLockState.Unlocking>()
+        assertThat(findOverlay(controller.get())).isNotNull()
+    }
+
+    @Test
     fun `should survive credential flow across pause-stop-start-resume`() {
         coordinator.suspendOnAuthenticate()
 

@@ -49,7 +49,6 @@ Use this structure for each new entry:
 - **Upstream Impact**: none
 - **Links**: `.github/workflows/fork-release.yml`
 
----
 
 ### 2026-02-18
 
@@ -67,7 +66,6 @@ Use this structure for each new entry:
 - **Upstream Impact**: long-lived divergence
 - **Links**: `.github/workflows/deploy-site.yml`, `site/index.html`, `site/CNAME`, `site/logo.png`
 
----
 
 ### 2026-02-24
 
@@ -85,7 +83,6 @@ Use this structure for each new entry:
 - **Upstream Impact**: long-lived divergence
 - **Links**: `app-thunderbird/build.gradle.kts`
 
----
 
 ### 2026-02-25
 
@@ -94,4 +91,13 @@ Use this structure for each new entry:
 - **Why**: When the screen turned off during active biometric/credential authentication, `onScreenOff()` unconditionally forced state to `Locked`. This created a stale `attemptId` — the gate's observer called `ensureUnlocked()` producing `Unlocking(N+1)`, but `launchAuthentication()` returned early because the old auth job was still active. When the old job completed, the `attemptId` mismatch caused its result to be discarded, leaving the coordinator stuck in `Unlocking(N+1)` with no active auth job. With the fix, `onScreenOff()` skips the forced transition when `isAuthenticating` is true; the system-dismissed BiometricPrompt fires `ERROR_CANCELED → Interrupted → Locked` naturally via `resolveAuthResult()`, with the correct `attemptId` intact.
 - **Upstream Impact**: temporary divergence — suitable for upstreaming
 - **Links**: `feature/applock/impl/src/main/kotlin/…/domain/DefaultAppLockCoordinator.kt`, `feature/applock/impl/src/test/kotlin/…/domain/FakeAppLockCoordinator.kt`, `feature/applock/impl/src/test/kotlin/…/domain/DefaultAppLockCoordinatorTest.kt`, `feature/applock/impl/src/test/kotlin/…/ui/DefaultAppLockGateTest.kt`
+
+
+### 2026-02-26
+
+- **Area**: App Behavior
+- **Change**: Fixed a second stuck-overlay race condition in `DefaultAppLockGate.launchAuthentication()` triggered by a pure pause/resume cycle (screen off then on quickly, without `onStop()`). Added a recovery check in the `finally` block: after `authenticationJob = null`, if the coordinator state is still `Unlocking(N)` matching `lastAttemptId`, reset `lastAttemptId` and relaunch authentication (if resumed). Added a regression test in `DefaultAppLockGateTest`.
+- **Why**: When `ERROR_CANCELED` (screen-off BiometricPrompt dismissal) fired after `onResume()`, the stateObserver called `ensureUnlocked()` advancing to `Unlocking(N+1)` while the old auth job was still active — so `launchAuthentication()` returned early. When the old job finally ended, no state change occurred and `onResume()` had already run, leaving the UI stuck with a blank overlay and no auth prompt. The recovery check in the `finally` block detects this condition and restarts authentication.
+- **Upstream Impact**: temporary divergence — suitable for upstreaming
+- **Links**: `feature/applock/impl/src/main/kotlin/…/ui/DefaultAppLockGate.kt`, `feature/applock/impl/src/test/kotlin/…/ui/DefaultAppLockGateTest.kt`
 

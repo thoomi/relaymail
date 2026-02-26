@@ -179,6 +179,19 @@ internal class DefaultAppLockGate(
                 }
             } finally {
                 authenticationJob = null
+                // Recovery: if state is still Unlocking for this attempt, it means
+                // launchAuthentication() returned early (job was active) when the stateObserver
+                // bumped to a new attempt while this job was running. Nobody will restart auth
+                // once this job ends — do it here.
+                // Note: the UnableToStart case sets lastAttemptId = null above, so
+                // currentState.attemptId != lastAttemptId and no retry happens there.
+                val currentState = coordinator.state.value
+                if (currentState is AppLockState.Unlocking &&
+                    currentState.attemptId == lastAttemptId
+                ) {
+                    lastAttemptId = null
+                    if (isResumed) launchAuthentication()
+                }
             }
         }
     }
