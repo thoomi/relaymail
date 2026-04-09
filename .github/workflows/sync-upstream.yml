@@ -59,7 +59,10 @@ jobs:
             exit 0
           fi
 
-          git checkout -b "$BRANCH" upstream/main
+          git checkout -b "$BRANCH" origin/main   # ← base off our fork's main
+          git merge upstream/main --no-edit || true  # conflicts expected, that's fine
+          git add -A
+          git commit --no-edit || true
           git push -u origin "$BRANCH"
 
           gh pr create \
