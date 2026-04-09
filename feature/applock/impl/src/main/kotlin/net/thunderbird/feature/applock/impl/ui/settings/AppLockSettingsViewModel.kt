@@ -1,7 +1,7 @@
 package net.thunderbird.feature.applock.impl.ui.settings
 
 import androidx.lifecycle.viewModelScope
-import app.k9mail.core.ui.compose.common.mvi.BaseViewModel
+import net.thunderbird.core.ui.contract.mvi.BaseViewModel
 import kotlinx.coroutines.launch
 import net.thunderbird.core.outcome.Outcome
 import net.thunderbird.feature.applock.api.AppLockCoordinator

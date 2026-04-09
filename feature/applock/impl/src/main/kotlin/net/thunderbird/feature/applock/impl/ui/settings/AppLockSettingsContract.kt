@@ -1,6 +1,6 @@
 package net.thunderbird.feature.applock.impl.ui.settings
 
-import app.k9mail.core.ui.compose.common.mvi.UnidirectionalViewModel
+import net.thunderbird.core.ui.contract.mvi.UnidirectionalViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import net.thunderbird.feature.applock.api.AppLockAuthenticator

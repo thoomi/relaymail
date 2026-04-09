@@ -21,7 +21,7 @@ import app.k9mail.core.ui.compose.designsystem.atom.button.RadioButton
 import app.k9mail.core.ui.compose.designsystem.atom.text.TextBodyMedium
 import app.k9mail.core.ui.compose.designsystem.atom.text.TextTitleMedium
 import app.k9mail.core.ui.compose.designsystem.organism.AlertDialog
-import app.k9mail.core.ui.compose.theme2.MainTheme
+import net.thunderbird.core.ui.compose.theme2.MainTheme
 import kotlinx.collections.immutable.ImmutableList
 import net.thunderbird.feature.applock.impl.R
 import net.thunderbird.feature.applock.impl.ui.settings.AppLockSettingsContract.Event
