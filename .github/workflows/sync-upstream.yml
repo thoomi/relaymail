@@ -59,7 +59,7 @@ jobs:
             exit 0
           fi
 
-          git checkout -b "$BRANCH" upstream/main
+          git checkout -b "$BRANCH" origin/main
           git push -u origin "$BRANCH"
 
           gh pr create \
@@ -81,3 +81,4 @@ jobs:
           )" \
             --base main \
             --head "$BRANCH"
+            --repo thoomi/relaymail

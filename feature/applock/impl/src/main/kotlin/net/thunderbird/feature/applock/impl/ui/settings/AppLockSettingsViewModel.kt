@@ -1,9 +1,9 @@
 package net.thunderbird.feature.applock.impl.ui.settings
 
 import androidx.lifecycle.viewModelScope
-import net.thunderbird.core.ui.contract.mvi.BaseViewModel
 import kotlinx.coroutines.launch
 import net.thunderbird.core.outcome.Outcome
+import net.thunderbird.core.ui.contract.mvi.BaseViewModel
 import net.thunderbird.feature.applock.api.AppLockCoordinator
 import net.thunderbird.feature.applock.impl.ui.settings.AppLockSettingsContract.Effect
 import net.thunderbird.feature.applock.impl.ui.settings.AppLockSettingsContract.Event
