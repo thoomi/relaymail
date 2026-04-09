@@ -22,8 +22,12 @@ import kotlin.test.assertNotNull
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import net.thunderbird.core.android.account.LegacyAccountDto
+import net.thunderbird.core.common.appConfig.PlatformConfigProvider
 import net.thunderbird.core.preference.GeneralSettings
+import net.thunderbird.core.preference.GeneralSettingsManager
 import net.thunderbird.core.preference.display.DisplaySettings
 import net.thunderbird.core.preference.interaction.InteractionSettings
 import net.thunderbird.core.preference.network.NetworkSettings
@@ -53,7 +57,18 @@ class NewMailNotificationManagerTest {
     private val account = createAccount()
     private val notificationContentCreator = mock<NotificationContentCreator>()
     private val localStoreProvider = createLocalStoreProvider()
+    private val generalSettingsManager = FakeGeneralSettingManager()
     private val clock = TestClock(Instant.fromEpochMilliseconds(TIMESTAMP))
+    private val generalSettings = GeneralSettings(
+        display = DisplaySettings(),
+        network = NetworkSettings(),
+        notification = NotificationPreference(
+            quietTimeStarts = "23:00",
+            quietTimeEnds = "00:00",
+        ),
+        privacy = PrivacySettings(),
+        platformConfigProvider = FakePlatformConfigProvider(),
+    )
     private val manager = NewMailNotificationManager(
         notificationContentCreator,
         createNotificationRepository(),
@@ -62,26 +77,17 @@ class NewMailNotificationManagerTest {
             interactionPreferences = mock {
                 on { getConfig() } doReturn InteractionSettings()
             },
-            notificationPreference = mock { on { getConfig() } doReturn NotificationPreference() },
+            notificationPreference = mock { on { getConfig() } doReturn generalSettings.notification },
         ),
         SummaryNotificationDataCreator(
             singleMessageNotificationDataCreator = SingleMessageNotificationDataCreator(
                 interactionPreferences = mock {
                     on { getConfig() } doReturn InteractionSettings()
                 },
-                notificationPreference = mock { on { getConfig() } doReturn NotificationPreference() },
+                notificationPreference = mock { on { getConfig() } doReturn generalSettings.notification },
             ),
             generalSettingsManager = mock {
-                on { getConfig() } doReturn GeneralSettings(
-                    display = DisplaySettings(),
-                    network = NetworkSettings(),
-                    notification = NotificationPreference(
-                        quietTimeStarts = "23:00",
-                        quietTimeEnds = "00:00",
-                    ),
-                    privacy = PrivacySettings(),
-                    platformConfigProvider = FakePlatformConfigProvider(),
-                )
+                on { getConfig() } doReturn generalSettings
             },
         ),
         clock,
@@ -528,6 +534,39 @@ class NewMailNotificationManagerTest {
             localStoreProvider,
             messageStoreManager,
             notificationContentCreator,
+            generalSettingsManager,
         )
+    }
+
+    private class FakeGeneralSettingManager : GeneralSettingsManager {
+        private val platformConfigProvider = object : PlatformConfigProvider {
+            override val isDebug: Boolean = true
+        }
+
+        private var generalSettings = GeneralSettings(platformConfigProvider = platformConfigProvider)
+
+        @Deprecated(
+            "Use PreferenceManager<GeneralSettings>.getConfig() instead",
+            replaceWith = ReplaceWith("getConfig()"),
+        )
+        override fun getSettings() = generalSettings
+
+        @Deprecated(
+            "Use PreferenceManager<GeneralSettings>.getConfigFlow() instead",
+            replaceWith = ReplaceWith("getConfigFlow()"),
+        )
+        override fun getSettingsFlow(): Flow<GeneralSettings> = flow {
+            emit(generalSettings)
+        }
+
+        override fun save(config: GeneralSettings) {
+            generalSettings = config
+        }
+
+        override fun getConfig(): GeneralSettings = generalSettings
+
+        override fun getConfigFlow(): Flow<GeneralSettings> = flow {
+            emit(generalSettings)
+        }
     }
 }

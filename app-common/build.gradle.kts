@@ -27,6 +27,7 @@ dependencies {
     implementation(projects.legacy.core)
     implementation(projects.legacy.ui.base)
     implementation(projects.core.android.account)
+    implementation(projects.core.android.common)
 
     implementation(projects.core.logging.api)
     implementation(projects.core.logging.implComposite)
@@ -73,6 +74,7 @@ dependencies {
     testImplementation(projects.feature.account.fake)
     testImplementation(projects.core.testing)
     testImplementation(projects.core.android.testing)
+    testImplementation(projects.core.logging.testing)
 }
 
 codeCoverage {

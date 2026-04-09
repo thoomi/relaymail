@@ -12,6 +12,7 @@ updates:
     labels:
       - "type: dependency"
       - "type: github actions"
+      - "report: exclude"
     commit-message:
       prefix: chore
       include: scope
@@ -23,6 +24,18 @@ updates:
     labels:
       - "type: dependency"
       - "type: gradle"
+    commit-message:
+      prefix: chore
+      include: scope
+  - package-ecosystem: pip
+    open-pull-requests-limit: 10
+    directories:
+      - "/scripts/*"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "type: dependency"
+      - "type: pip"
     commit-message:
       prefix: chore
       include: scope
