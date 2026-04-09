@@ -14,7 +14,7 @@ import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import app.k9mail.core.ui.compose.common.mvi.observe
+import net.thunderbird.core.ui.contract.mvi.observe
 import app.k9mail.core.ui.compose.designsystem.organism.TopAppBarWithBackButton
 import net.thunderbird.feature.applock.api.AppLockAuthenticatorFactory
 import net.thunderbird.feature.applock.impl.R
