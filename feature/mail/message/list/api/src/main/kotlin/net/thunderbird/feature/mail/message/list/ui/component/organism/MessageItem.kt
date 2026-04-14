@@ -131,8 +131,8 @@ internal fun MessageItem(
             Spacer(Modifier.width(MainTheme.spacings.default))
             // Message Content and Contents
             Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(MainTheme.spacings.half),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+                verticalArrangement = Arrangement.spacedBy(MainTheme.spacings.half, Alignment.CenterVertically),
             ) {
                 AdaptiveMessageItemHeaderRow(configuration, receivedAt, firstLine)
                 MessageBodyContent(
@@ -146,7 +146,7 @@ internal fun MessageItem(
             Column(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .widthIn(min = MainTheme.sizes.minTouchTarget),
+                    .widthIn(min = MainTheme.sizes.icon),
                 verticalArrangement = Arrangement.SpaceEvenly,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -155,6 +155,16 @@ internal fun MessageItem(
                         is MessageItemTrailingElement.EncryptedBadge -> Icon(
                             imageVector = Icons.Outlined.Encrypted,
                             contentDescription = null,
+                            modifier = Modifier.then(
+                                if (element.isFavouriteHidden) {
+                                    Modifier.padding(
+                                        start = MainTheme.spacings.half,
+                                        end = MainTheme.spacings.default,
+                                    )
+                                } else {
+                                    Modifier
+                                },
+                            ),
                         )
 
                         is MessageItemTrailingElement.FavouriteIconButton -> FavouriteButtonIcon(
