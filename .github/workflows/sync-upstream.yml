@@ -60,6 +60,9 @@ jobs:
           fi
 
           git checkout -b "$BRANCH" origin/main
+          git merge upstream/main --no-edit || true
+          git add -A
+          git commit -m "Merge upstream/main (conflicts need manual resolution)"
           git push -u origin "$BRANCH"
 
           gh pr create \
