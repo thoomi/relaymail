@@ -80,5 +80,5 @@ jobs:
           EOF
           )" \
             --base main \
-            --head "$BRANCH"
+            --head "$BRANCH" \
             --repo thoomi/relaymail
