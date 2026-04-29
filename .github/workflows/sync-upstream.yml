@@ -45,29 +45,55 @@ jobs:
         if: steps.merge.outputs.conflict == 'false'
         run: git push origin main
 
-      - name: Create conflict PR
+      - name: Create or refresh conflict PR
         if: steps.merge.outputs.conflict == 'true'
         env:
           GH_TOKEN: ${{ secrets.SYNC_UPSTREAM_TOKEN }}
         run: |
-          BRANCH="sync/upstream-$(date +%Y-%m-%d)"
+          set -euo pipefail
 
-          # Check if a sync PR already exists
-          EXISTING=$(gh pr list --head "$BRANCH" --state open --json number --jq 'length')
-          if [ "$EXISTING" -gt 0 ]; then
-            echo "A sync PR for $BRANCH already exists. Skipping."
-            exit 0
+          BOT_MSG="Merge upstream/main (conflicts need manual resolution)"
+          BOT_AUTHOR="github-actions[bot]"
+
+          # Find an existing open sync PR (if any)
+          EXISTING_BRANCH=$(gh pr list --state open --json headRefName \
+            --jq '[.[] | select(.headRefName | startswith("sync/upstream-"))][0].headRefName // empty')
+
+          REFRESH=false
+          if [ -n "$EXISTING_BRANCH" ]; then
+            git fetch origin "$EXISTING_BRANCH"
+
+            # First-parent count from main: 1 means the only commit on top of main
+            # is the bot's automated merge commit.
+            COMMITS=$(git rev-list --first-parent --count "origin/main..origin/$EXISTING_BRANCH")
+            LAST_AUTHOR=$(git log -1 --format='%an' "origin/$EXISTING_BRANCH")
+            LAST_MSG=$(git log -1 --format='%s' "origin/$EXISTING_BRANCH")
+
+            if [ "$COMMITS" = "1" ] && [ "$LAST_AUTHOR" = "$BOT_AUTHOR" ] && [ "$LAST_MSG" = "$BOT_MSG" ]; then
+              REFRESH=true
+              BRANCH="$EXISTING_BRANCH"
+              echo "Existing branch $BRANCH is untouched — refreshing it."
+            else
+              echo "Existing branch $EXISTING_BRANCH has human commits — opening a new PR."
+              BRANCH="sync/upstream-$(date +%Y-%m-%d)-${{ github.run_id }}"
+            fi
+          else
+            BRANCH="sync/upstream-$(date +%Y-%m-%d)-${{ github.run_id }}"
           fi
 
-          git checkout -b "$BRANCH" origin/main
+          git checkout -B "$BRANCH" origin/main
           git merge upstream/main --no-edit || true
           git add -A
-          git commit -m "Merge upstream/main (conflicts need manual resolution)"
-          git push -u origin "$BRANCH"
+          git commit -m "$BOT_MSG"
 
-          gh pr create \
-            --title "Upstream sync — manual merge needed" \
-            --body "$(cat <<'EOF'
+          if [ "$REFRESH" = "true" ]; then
+            git push --force-with-lease origin "$BRANCH"
+            echo "Refreshed existing PR for branch $BRANCH"
+          else
+            git push -u origin "$BRANCH"
+            gh pr create \
+              --title "Upstream sync — manual merge needed" \
+              --body "$(cat <<'EOF'
           Automated upstream sync encountered merge conflicts.
 
           **What happened:**
@@ -82,7 +108,8 @@ jobs:
           _Created automatically by the sync-upstream workflow._
           EOF
           )" \
-            --base main \
-            --head "$BRANCH" \
-            --label "report: include" \
-            --repo thoomi/relaymail
+              --base main \
+              --head "$BRANCH" \
+              --label "report: include" \
+              --repo thoomi/relaymail
+          fi
