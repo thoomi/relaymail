@@ -55,8 +55,10 @@ jobs:
           BOT_MSG="Merge upstream/main (conflicts need manual resolution)"
           BOT_AUTHOR="github-actions[bot]"
 
-          # Find an existing open sync PR (if any)
-          EXISTING_BRANCH=$(gh pr list --state open --json headRefName \
+          # Find an existing open sync PR (if any).
+          # --repo is required because the `upstream` remote we added earlier
+          # makes gh default to the parent repo otherwise.
+          EXISTING_BRANCH=$(gh pr list --repo thoomi/relaymail --state open --json headRefName \
             --jq '[.[] | select(.headRefName | startswith("sync/upstream-"))][0].headRefName // empty')
 
           REFRESH=false
