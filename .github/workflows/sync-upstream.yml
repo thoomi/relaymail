@@ -84,4 +84,5 @@ jobs:
           )" \
             --base main \
             --head "$BRANCH" \
+            --label "report: include" \
             --repo thoomi/relaymail
