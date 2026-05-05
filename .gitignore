@@ -53,3 +53,7 @@ eml-files/
 .agents/
 .claude/
 __pycache__/
+
+# Merged PRs report
+merged-prs-*.md
+merged-prs-*.csv
