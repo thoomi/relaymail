@@ -106,6 +106,49 @@ jobs:
           # Re-run the merge so the working tree has conflict markers for Claude.
           git merge "upstream/$UPSTREAM_BRANCH" --no-edit || true
 
+      - name: Prepare conflict brief for Claude
+        if: steps.merge.outputs.conflict == 'true'
+        run: |
+          set -euo pipefail
+
+          BRIEF=.git/sync-upstream-conflict-brief.md
+          {
+            echo "# Upstream Sync Conflict Brief"
+            echo
+            echo "- Upstream repo: \`${UPSTREAM_REPO}\`"
+            echo "- Upstream branch: \`${UPSTREAM_BRANCH}\`"
+            echo "- Target branch: \`${{ steps.branch.outputs.branch }}\`"
+            echo
+            echo "Start from this brief. Only inspect full files, additional history, or other repo areas when this summary is insufficient."
+            echo
+            echo "## Unmerged files"
+            git diff --name-only --diff-filter=U | sed 's/^/- `/; s/$/`/'
+          } > "$BRIEF"
+
+          while IFS= read -r file; do
+            {
+              echo
+              echo "## File: \`$file\`"
+              echo
+              echo "### Fork-only commits touching this file"
+              FORK_LOG=$(git log --oneline "upstream/$UPSTREAM_BRANCH..origin/main" -- "$file" || true)
+              if [ -n "$FORK_LOG" ]; then
+                printf '%s\n' "$FORK_LOG" | sed 's/^/- /'
+              else
+                echo "- none"
+              fi
+              echo
+              echo "### Conflict hunks from working tree"
+              echo '```text'
+              awk '
+                /^<<<<<<< / { in_conflict=1 }
+                in_conflict { print }
+                /^>>>>>>> / { in_conflict=0; print "" }
+              ' "$file"
+              echo '```'
+            } >> "$BRIEF"
+          done < <(git diff --name-only --diff-filter=U)
+
       - name: Resolve conflicts with Claude
         id: claude
         if: steps.merge.outputs.conflict == 'true'
@@ -116,17 +159,25 @@ jobs:
           prompt: |
             A `git merge upstream/${{ env.UPSTREAM_BRANCH }}` (from `${{ env.UPSTREAM_REPO }}`) has just left conflict markers in the working tree of this fork. Your task: resolve the conflicts safely and stage the resolved files.
 
-            1. List unmerged files: `git diff --name-only --diff-filter=U`
-            2. For each file, read it, understand both sides of every conflict, and write a clean resolved version.
-               - This is an upstream sync. Default to upstream's version unless there is clear fork-specific intent (e.g. fork-only commits visible via `git log origin/main`) that must be preserved.
-               - Never leave `<<<<<<<`, `=======`, or `>>>>>>>` markers in the resolved file.
-            3. After resolving a file, stage it: `git add <file>`.
-            4. If a file is genuinely unsafe to resolve (ambiguous business logic, large rewrites on both sides), leave it unstaged with markers intact — a human will pick it up.
-            5. Do NOT run `git commit`. Do NOT amend or push. Just stage what you resolved.
-            6. End with a one-paragraph summary of files resolved vs. left for human.
+            Start by reading `.git/sync-upstream-conflict-brief.md`. Treat it as the primary context. Do not proactively read unrelated files or broad repository history. Pull additional context only when the brief is insufficient to resolve a specific conflict safely.
+
+            1. Read `.git/sync-upstream-conflict-brief.md`.
+            2. For each unmerged file, decide whether the brief is enough.
+               - If yes, resolve the file directly.
+               - If not, fetch only the smallest extra context needed for that file, such as:
+                 - `git show :2:<file>` for our side
+                 - `git show :3:<file>` for upstream's side
+                 - `git log --oneline upstream/${{ env.UPSTREAM_BRANCH }}..origin/main -- <file>` for fork-only intent
+                 - reading the full file itself
+            3. This is an upstream sync. Default to upstream's version unless there is clear fork-specific intent that must be preserved.
+            4. Never leave `<<<<<<<`, `=======`, or `>>>>>>>` markers in a resolved file.
+            5. After resolving a file, stage it with `git add <file>`.
+            6. If a file is genuinely unsafe to resolve, leave it unstaged with markers intact so a human can pick it up.
+            7. Do NOT run `git commit`. Do NOT amend or push. Just stage what you resolved.
+            8. End with a one-paragraph summary of files resolved, extra context you needed, and files left for human review.
           claude_args: |
             --max-turns 16
-            --allowedTools "Bash(git status:*),Bash(git diff:*),Bash(git add:*),Bash(git ls-files:*),Bash(git log:*),Read,Edit,Glob,Grep"
+            --allowedTools "Bash(git status:*),Bash(git diff:*),Bash(git add:*),Bash(git ls-files:*),Bash(git log:*),Bash(git show:*),Read,Edit,Glob,Grep"
 
       - name: Commit merge result
         id: outcome
