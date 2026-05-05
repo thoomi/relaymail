@@ -49,6 +49,12 @@ adb-screenshots/
 # Extracted eml files
 eml-files/
 
+<<<<<<< HEAD
 # Agent instructions and plan files
 .agents/
 .claude/
+=======
+# Merged PRs report
+merged-prs-*.md
+merged-prs-*.csv
+>>>>>>> upstream/main
