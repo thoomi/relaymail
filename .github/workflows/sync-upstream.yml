@@ -158,7 +158,6 @@ jobs:
         continue-on-error: true
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          max_turns: "16"
           prompt: |
             A `git merge upstream/${{ env.UPSTREAM_BRANCH }}` (from `${{ env.UPSTREAM_REPO }}`) has just left conflict markers in the working tree of this fork. Your task: resolve the conflicts safely and stage the resolved files.
 
