@@ -32,12 +32,20 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - name: Checkout fork
+      - name: Checkout workflow ref
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           token: ${{ secrets.SYNC_UPSTREAM_TOKEN }}
-          ref: ${{ env.TARGET_BRANCH }}
+          ref: ${{ github.ref }}
           fetch-depth: 0
+
+      - name: Preserve sync scripts
+        run: |
+          set -euo pipefail
+          SYNC_SCRIPT_DIR="$RUNNER_TEMP/sync-upstream-scripts"
+          mkdir -p "$SYNC_SCRIPT_DIR"
+          cp .github/scripts/sync-upstream/*.py "$SYNC_SCRIPT_DIR/"
+          echo "SYNC_SCRIPT_DIR=$SYNC_SCRIPT_DIR" >> "$GITHUB_ENV"
 
       - name: Configure git
         run: |
@@ -49,6 +57,7 @@ jobs:
         run: |
           set -euo pipefail
           git fetch --no-tags origin "$TARGET_BRANCH"
+          git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
           if git remote get-url upstream > /dev/null 2>&1; then
             git remote set-url upstream "https://github.com/${UPSTREAM_REPO}.git"
           else
@@ -88,7 +97,7 @@ jobs:
         if: steps.merge.outputs.has_changes == 'true'
         env:
           GH_TOKEN: ${{ secrets.SYNC_UPSTREAM_TOKEN }}
-        run: python3 .github/scripts/sync-upstream/select_branch.py
+        run: python3 "$SYNC_SCRIPT_DIR/select_branch.py"
 
       - name: Move clean sync branch to merge result
         if: steps.merge.outputs.conflict == 'false' && steps.merge.outputs.has_changes == 'true'
@@ -109,7 +118,7 @@ jobs:
 
       - name: Prepare conflict brief
         if: steps.merge.outputs.conflict == 'true'
-        run: python3 .github/scripts/sync-upstream/prepare_conflict_brief.py
+        run: python3 "$SYNC_SCRIPT_DIR/prepare_conflict_brief.py"
 
       - name: Check Claude availability
         id: claude_config
@@ -164,11 +173,11 @@ jobs:
         if: steps.merge.outputs.conflict == 'true'
         env:
           CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
-        run: python3 .github/scripts/sync-upstream/commit_conflict_result.py
+        run: python3 "$SYNC_SCRIPT_DIR/commit_conflict_result.py"
 
       - name: Push branch
         if: steps.merge.outputs.has_changes == 'true' && (steps.merge.outputs.conflict == 'false' || steps.outcome.outputs.ready_for_pr == 'true')
-        run: python3 .github/scripts/sync-upstream/push_branch.py "${{ steps.branch.outputs.branch }}" "${{ steps.branch.outputs.refresh }}"
+        run: python3 "$SYNC_SCRIPT_DIR/push_branch.py" "${{ steps.branch.outputs.branch }}" "${{ steps.branch.outputs.refresh }}"
 
       - name: Create or update PR
         if: steps.merge.outputs.has_changes == 'true' && (steps.merge.outputs.conflict == 'false' || steps.outcome.outputs.ready_for_pr == 'true')
@@ -180,7 +189,7 @@ jobs:
           RESOLVED: ${{ steps.outcome.outputs.claude_resolved }}
           CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
           CLAUDE_STRUCTURED_OUTPUT: ${{ steps.claude.outputs.structured_output }}
-        run: python3 .github/scripts/sync-upstream/upsert_pr.py
+        run: python3 "$SYNC_SCRIPT_DIR/upsert_pr.py"
 
       - name: Create or update manual-resolution issue
         if: steps.merge.outputs.conflict == 'true' && steps.outcome.outputs.ready_for_pr != 'true'
@@ -189,4 +198,4 @@ jobs:
           CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
           CLAUDE_AVAILABLE: ${{ steps.claude_config.outputs.available }}
           MANUAL_REASON: ${{ steps.outcome.outputs.manual_reason }}
-        run: python3 .github/scripts/sync-upstream/upsert_manual_issue.py
+        run: python3 "$SYNC_SCRIPT_DIR/upsert_manual_issue.py"
