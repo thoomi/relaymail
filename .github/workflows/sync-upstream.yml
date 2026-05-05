@@ -240,8 +240,7 @@ jobs:
           CONFLICT_FILE_COUNT=$(wc -l < .git/sync-upstream-conflict-files.txt | tr -d ' ')
           CONFLICT_FILES_PREVIEW=$(head -n 30 .git/sync-upstream-conflict-files.txt | sed 's/^/- `/; s/$/`/')
           if [ "$CONFLICT_FILE_COUNT" -gt 30 ]; then
-            CONFLICT_FILES_PREVIEW="$CONFLICT_FILES_PREVIEW
-- _... and $((CONFLICT_FILE_COUNT - 30)) more conflicted files_"
+            CONFLICT_FILES_PREVIEW="${CONFLICT_FILES_PREVIEW}"$'\n'"- _... and $((CONFLICT_FILE_COUNT - 30)) more conflicted files_"
           fi
 
           if [ "$RESOLVED" = "true" ]; then
