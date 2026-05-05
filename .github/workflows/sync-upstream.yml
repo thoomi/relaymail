@@ -187,6 +187,7 @@ jobs:
         run: |
           set -euo pipefail
           CLAUDE_OUTCOME="${{ steps.claude.outcome }}"
+          SUMMARY_FILE=.git/sync-upstream-claude-summary.md
 
           # Stage anything Claude didn't (so the PR shows the full state either way).
           git add -A
@@ -209,6 +210,20 @@ jobs:
             CLAUDE_RESOLVED=true
             COMMIT_MSG="Merge upstream/$UPSTREAM_BRANCH (conflicts auto-resolved by Claude)"
           fi
+
+          {
+            if [ "$CLAUDE_RESOLVED" = "true" ]; then
+              echo "Claude resolved the merge cleanly. Review the conflicted files first, then scan the summarized final diff below."
+              echo
+              while IFS= read -r file; do
+                [ -n "$file" ] || continue
+                echo "- \`$file\`"
+                git diff --stat=120,120 origin/main...HEAD -- "$file" | sed 's/^/  /'
+              done < .git/sync-upstream-conflict-files.txt
+            else
+              echo "Claude did not finish with a clean automatic resolution. Review the conflicted files listed below and resolve them manually."
+            fi
+          } > "$SUMMARY_FILE"
 
           echo "claude_resolved=$CLAUDE_RESOLVED" >> "$GITHUB_OUTPUT"
           git commit -m "$COMMIT_MSG"
@@ -238,6 +253,7 @@ jobs:
           TOTAL_CHANGED_FILES=$(git diff --name-only origin/main...HEAD | wc -l | tr -d ' ')
           CONFLICT_FILE_COUNT=$(wc -l < .git/sync-upstream-conflict-files.txt | tr -d ' ')
           CONFLICT_FILES_PREVIEW=$(head -n 30 .git/sync-upstream-conflict-files.txt | sed 's/^/- `/; s/$/`/')
+          CLAUDE_CHANGE_SUMMARY=$(cat .git/sync-upstream-claude-summary.md)
           if [ "$CONFLICT_FILE_COUNT" -gt 30 ]; then
             CONFLICT_FILES_PREVIEW="${CONFLICT_FILES_PREVIEW}"$'\n'"- _... and $((CONFLICT_FILE_COUNT - 30)) more conflicted files_"
           fi
@@ -261,6 +277,9 @@ jobs:
 
           **Conflicted files to review first:**
           __CONFLICT_FILES_PREVIEW__
+
+          **Claude change summary:**
+          __CLAUDE_CHANGE_SUMMARY__
 
           cc @${{ github.repository_owner }}
 
@@ -287,6 +306,9 @@ jobs:
           **Conflicted files to review first:**
           __CONFLICT_FILES_PREVIEW__
 
+          **Claude change summary:**
+          __CLAUDE_CHANGE_SUMMARY__
+
           cc @${{ github.repository_owner }}
 
           _Created automatically by the sync-upstream workflow._
@@ -297,6 +319,7 @@ jobs:
           BODY=${BODY//__TOTAL_CHANGED_FILES__/$TOTAL_CHANGED_FILES}
           BODY=${BODY//__CONFLICT_FILE_COUNT__/$CONFLICT_FILE_COUNT}
           BODY=${BODY//__CONFLICT_FILES_PREVIEW__/$CONFLICT_FILES_PREVIEW}
+          BODY=${BODY//__CLAUDE_CHANGE_SUMMARY__/$CLAUDE_CHANGE_SUMMARY}
 
           if [ "$REFRESH" = "true" ]; then
             gh pr edit "$BRANCH" --repo ${{ github.repository }} --title "$TITLE" --body "$BODY"
