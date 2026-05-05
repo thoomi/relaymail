@@ -5,155 +5,138 @@ on:
     - cron: "0 6 * * *" # Every day at 06:00 UTC
   workflow_dispatch:
 
+concurrency:
+  group: sync-upstream-main
+  cancel-in-progress: false
+
 permissions:
   contents: write
   pull-requests: write
   id-token: write
+  issues: write
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  TARGET_BRANCH: main
+  UPSTREAM_REPO: thunderbird/thunderbird-android
+  UPSTREAM_BRANCH: main
+  SYNC_BRANCH_PREFIX: sync/upstream-
+  SYNC_LABEL: "report: include"
 
 jobs:
   sync:
-    runs-on: ubuntu-latest
-
-    env:
-      UPSTREAM_REPO: thunderbird/thunderbird-android
-      UPSTREAM_BRANCH: main
-      SYNC_BRANCH_PREFIX: sync/upstream-
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
 
     steps:
-      - name: Checkout fork
+      - name: Checkout workflow ref
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           token: ${{ secrets.SYNC_UPSTREAM_TOKEN }}
-          ref: main
+          ref: ${{ github.ref }}
           fetch-depth: 0
+
+      - name: Preserve sync scripts
+        run: |
+          set -euo pipefail
+          SYNC_SCRIPT_DIR="$RUNNER_TEMP/sync-upstream-scripts"
+          mkdir -p "$SYNC_SCRIPT_DIR"
+          cp .github/scripts/sync-upstream/*.py "$SYNC_SCRIPT_DIR/"
+          echo "SYNC_SCRIPT_DIR=$SYNC_SCRIPT_DIR" >> "$GITHUB_ENV"
 
       - name: Configure git
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Add upstream remote and fetch
         run: |
-          git remote add upstream "https://github.com/${UPSTREAM_REPO}.git"
-          git fetch upstream "$UPSTREAM_BRANCH"
+          set -euo pipefail
+          git fetch --no-tags origin "$TARGET_BRANCH"
+          git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+          if git remote get-url upstream > /dev/null 2>&1; then
+            git remote set-url upstream "https://github.com/${UPSTREAM_REPO}.git"
+          else
+            git remote add upstream "https://github.com/${UPSTREAM_REPO}.git"
+          fi
+          git fetch --no-tags upstream "$UPSTREAM_BRANCH"
 
       - name: Attempt merge
         id: merge
         run: |
-          if git merge "upstream/$UPSTREAM_BRANCH" --no-edit; then
+          set -euo pipefail
+
+          BEFORE_SHA=$(git rev-parse HEAD)
+          SYNC_COMMIT_MSG_CLEAN="Merge upstream/$UPSTREAM_BRANCH"
+          if git merge --no-ff "upstream/$UPSTREAM_BRANCH" -m "$SYNC_COMMIT_MSG_CLEAN"; then
             echo "conflict=false" >> "$GITHUB_OUTPUT"
+            if [ "$(git rev-parse HEAD)" = "$BEFORE_SHA" ]; then
+              echo "has_changes=false" >> "$GITHUB_OUTPUT"
+              echo "Already up to date with upstream/$UPSTREAM_BRANCH"
+            else
+              echo "has_changes=true" >> "$GITHUB_OUTPUT"
+              echo "Merged upstream/$UPSTREAM_BRANCH cleanly"
+            fi
           else
-            git merge --abort
+            git merge --abort || true
             echo "conflict=true" >> "$GITHUB_OUTPUT"
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "Merge conflicts detected"
           fi
 
-      - name: Push to main (no conflicts)
-        if: steps.merge.outputs.conflict == 'false'
-        run: git push origin HEAD
+      - name: Stop when already up to date
+        if: steps.merge.outputs.has_changes == 'false'
+        run: echo "No upstream changes to sync."
 
       - name: Determine sync branch
         id: branch
-        if: steps.merge.outputs.conflict == 'true'
+        if: steps.merge.outputs.has_changes == 'true'
         env:
           GH_TOKEN: ${{ secrets.SYNC_UPSTREAM_TOKEN }}
+        run: python3 "$SYNC_SCRIPT_DIR/select_branch.py"
+
+      - name: Move clean sync branch to merge result
+        if: steps.merge.outputs.conflict == 'false' && steps.merge.outputs.has_changes == 'true'
         run: |
           set -euo pipefail
-
-          BOT_AUTHOR="github-actions[bot]"
-
-          # Find an existing open sync PR (if any).
-          # --repo is required because the `upstream` remote we added earlier
-          # makes gh default to the parent repo otherwise.
-          EXISTING_BRANCH=$(gh pr list --repo ${{ github.repository }} --state open --json headRefName \
-            --jq "[.[] | select(.headRefName | startswith(\"${SYNC_BRANCH_PREFIX}\"))][0].headRefName // empty")
-
-          REFRESH=false
-          if [ -n "$EXISTING_BRANCH" ]; then
-            git fetch origin "$EXISTING_BRANCH"
-
-            # First-parent count from main: 1 means the only commit on top of main
-            # is the bot's automated merge commit.
-            COMMITS=$(git rev-list --first-parent --count "origin/main..origin/$EXISTING_BRANCH")
-            LAST_AUTHOR=$(git log -1 --format='%an' "origin/$EXISTING_BRANCH")
-            LAST_MSG=$(git log -1 --format='%s' "origin/$EXISTING_BRANCH")
-
-            case "$LAST_MSG" in
-              "Merge upstream/$UPSTREAM_BRANCH (conflicts need manual resolution)"|"Merge upstream/$UPSTREAM_BRANCH (conflicts auto-resolved by Claude)")
-                MSG_KNOWN=true ;;
-              *)
-                MSG_KNOWN=false ;;
-            esac
-
-            if [ "$COMMITS" = "1" ] && [ "$LAST_AUTHOR" = "$BOT_AUTHOR" ] && [ "$MSG_KNOWN" = "true" ]; then
-              REFRESH=true
-              BRANCH="$EXISTING_BRANCH"
-              echo "Existing branch $BRANCH is untouched — refreshing it."
-            else
-              echo "Existing branch $EXISTING_BRANCH has human commits — opening a new PR."
-              BRANCH="${SYNC_BRANCH_PREFIX}$(date +%Y-%m-%d)-${{ github.run_id }}"
-            fi
-          else
-            BRANCH="${SYNC_BRANCH_PREFIX}$(date +%Y-%m-%d)-${{ github.run_id }}"
-          fi
-
-          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
-          echo "refresh=$REFRESH" >> "$GITHUB_OUTPUT"
+          git checkout -B "${{ steps.branch.outputs.branch }}"
 
       - name: Set up sync branch and re-merge upstream
         if: steps.merge.outputs.conflict == 'true'
         run: |
-          git checkout -B "${{ steps.branch.outputs.branch }}" origin/main
-          # Re-run the merge so the working tree has conflict markers for Claude.
-          git merge "upstream/$UPSTREAM_BRANCH" --no-edit || true
+          set -euo pipefail
+          echo "Recreating sync branch '${{ steps.branch.outputs.branch }}' from origin/$TARGET_BRANCH"
+          git checkout -B "${{ steps.branch.outputs.branch }}" "origin/$TARGET_BRANCH"
+          echo "Re-running merge from upstream/$UPSTREAM_BRANCH to restore conflict markers"
+          git merge --no-ff "upstream/$UPSTREAM_BRANCH" -m "Merge upstream/$UPSTREAM_BRANCH" || true
+          echo "Unmerged files after re-merge:"
+          git diff --name-only --diff-filter=U || true
 
-      - name: Prepare conflict brief for Claude
+      - name: Prepare conflict brief
         if: steps.merge.outputs.conflict == 'true'
+        run: python3 "$SYNC_SCRIPT_DIR/prepare_conflict_brief.py"
+
+      - name: Check Claude availability
+        id: claude_config
+        if: steps.merge.outputs.conflict == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           set -euo pipefail
-
-          BRIEF=.git/sync-upstream-conflict-brief.md
-          CONFLICT_FILES=.git/sync-upstream-conflict-files.txt
-          git diff --name-only --diff-filter=U > "$CONFLICT_FILES"
-          {
-            echo "# Upstream Sync Conflict Brief"
-            echo
-            echo "- Upstream repo: \`${UPSTREAM_REPO}\`"
-            echo "- Upstream branch: \`${UPSTREAM_BRANCH}\`"
-            echo "- Target branch: \`${{ steps.branch.outputs.branch }}\`"
-            echo
-            echo "Start from this brief. Only inspect full files, additional history, or other repo areas when this summary is insufficient."
-            echo
-            echo "## Unmerged files"
-            git diff --name-only --diff-filter=U | sed 's/^/- `/; s/$/`/'
-          } > "$BRIEF"
-
-          while IFS= read -r file; do
-            {
-              echo
-              echo "## File: \`$file\`"
-              echo
-              echo "### Fork-only commits touching this file"
-              FORK_LOG=$(git log --oneline "upstream/$UPSTREAM_BRANCH..origin/main" -- "$file" || true)
-              if [ -n "$FORK_LOG" ]; then
-                printf '%s\n' "$FORK_LOG" | sed 's/^/- /'
-              else
-                echo "- none"
-              fi
-              echo
-              echo "### Conflict hunks from working tree"
-              echo '```text'
-              awk '
-                /^<<<<<<< / { in_conflict=1 }
-                in_conflict { print }
-                /^>>>>>>> / { in_conflict=0; print "" }
-              ' "$file"
-              echo '```'
-            } >> "$BRIEF"
-          done < <(git diff --name-only --diff-filter=U)
+          if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "ANTHROPIC_API_KEY is not configured; opening a manual-resolution issue."
+          fi
 
       - name: Resolve conflicts with Claude
         id: claude
-        if: steps.merge.outputs.conflict == 'true'
+        if: steps.merge.outputs.conflict == 'true' && steps.claude_config.outputs.available == 'true'
         uses: anthropics/claude-code-action@2cc1ac1331eac7a6a96d716dd204dd2888d0fcd2 # v1
         continue-on-error: true
         with:
@@ -169,168 +152,50 @@ jobs:
                - If not, fetch only the smallest extra context needed for that file, such as:
                  - `git show :2:<file>` for our side
                  - `git show :3:<file>` for upstream's side
-                 - `git log --oneline upstream/${{ env.UPSTREAM_BRANCH }}..origin/main -- <file>` for fork-only intent
+                 - `git log --oneline upstream/${{ env.UPSTREAM_BRANCH }}..origin/${{ env.TARGET_BRANCH }} -- <file>` for fork-only intent
                  - reading the full file itself
             3. This is an upstream sync. Default to upstream's version unless there is clear fork-specific intent that must be preserved.
             4. Never leave `<<<<<<<`, `=======`, or `>>>>>>>` markers in a resolved file.
             5. After resolving a file, stage it with `git add <file>`.
             6. If a file is genuinely unsafe to resolve, leave it unstaged with markers intact so a human can pick it up.
             7. Do NOT run `git commit`. Do NOT amend or push. Just stage what you resolved.
-            8. End with a one-paragraph summary of files resolved, extra context you needed, and files left for human review.
+            8. Return a structured summary describing:
+               - which files you resolved
+               - any extra context you had to fetch beyond the brief
+               - which files, if any, still need human review
           claude_args: |
             --max-turns 16
+            --json-schema '{"type":"object","properties":{"summary":{"type":"string","description":"A concise reviewer-facing summary of what was resolved, what extra context was needed, and what still needs human review."}},"required":["summary"],"additionalProperties":false}'
             --allowedTools "Bash(git status:*),Bash(git diff:*),Bash(git add:*),Bash(git ls-files:*),Bash(git log:*),Bash(git show:*),Read,Edit,Glob,Grep"
 
-      - name: Commit merge result
+      - name: Commit conflict merge result
         id: outcome
         if: steps.merge.outputs.conflict == 'true'
-        run: |
-          set -euo pipefail
-          CLAUDE_OUTCOME="${{ steps.claude.outcome }}"
-          SUMMARY_FILE=.git/sync-upstream-claude-summary.md
-
-          # Stage anything Claude didn't (so the PR shows the full state either way).
-          git add -A
-
-          # `git diff --cached --check` lists "leftover conflict marker" lines for any
-          # staged content that still contains <<<<<<< / ======= / >>>>>>>.
-          # It exits non-zero when it reports issues, so capture the output first
-          # (with `|| true` to neutralize the failing exit under pipefail) and then
-          # grep the captured string — never pipe `git diff --check` directly.
-          DIFF_CHECK=$(git diff --cached --check 2>&1 || true)
-          if [ "$CLAUDE_OUTCOME" != "success" ]; then
-            echo "Claude step ended with outcome '$CLAUDE_OUTCOME' — falling back to manual-resolution PR."
-            CLAUDE_RESOLVED=false
-            COMMIT_MSG="Merge upstream/$UPSTREAM_BRANCH (conflicts need manual resolution)"
-          elif printf '%s' "$DIFF_CHECK" | grep -q "leftover conflict marker"; then
-            echo "Conflict markers remain in staged content — falling back to manual-resolution PR."
-            CLAUDE_RESOLVED=false
-            COMMIT_MSG="Merge upstream/$UPSTREAM_BRANCH (conflicts need manual resolution)"
-          else
-            CLAUDE_RESOLVED=true
-            COMMIT_MSG="Merge upstream/$UPSTREAM_BRANCH (conflicts auto-resolved by Claude)"
-          fi
-
-          {
-            if [ "$CLAUDE_RESOLVED" = "true" ]; then
-              echo "Claude resolved the merge cleanly. Review the conflicted files first, then scan the summarized final diff below."
-              echo
-              while IFS= read -r file; do
-                [ -n "$file" ] || continue
-                echo "- \`$file\`"
-                git diff --stat=120,120 origin/main...HEAD -- "$file" | sed 's/^/  /'
-              done < .git/sync-upstream-conflict-files.txt
-            else
-              echo "Claude did not finish with a clean automatic resolution. Review the conflicted files listed below and resolve them manually."
-            fi
-          } > "$SUMMARY_FILE"
-
-          echo "claude_resolved=$CLAUDE_RESOLVED" >> "$GITHUB_OUTPUT"
-          git commit -m "$COMMIT_MSG"
+        env:
+          CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
+        run: python3 "$SYNC_SCRIPT_DIR/commit_conflict_result.py"
 
       - name: Push branch
-        if: steps.merge.outputs.conflict == 'true'
-        run: |
-          set -euo pipefail
-          BRANCH="${{ steps.branch.outputs.branch }}"
-          if [ "${{ steps.branch.outputs.refresh }}" = "true" ]; then
-            git push --force-with-lease origin "$BRANCH"
-            echo "Refreshed existing PR for branch $BRANCH"
-          else
-            git push -u origin "$BRANCH"
-          fi
+        if: steps.merge.outputs.has_changes == 'true' && (steps.merge.outputs.conflict == 'false' || steps.outcome.outputs.ready_for_pr == 'true')
+        run: python3 "$SYNC_SCRIPT_DIR/push_branch.py" "${{ steps.branch.outputs.branch }}" "${{ steps.branch.outputs.refresh }}"
 
       - name: Create or update PR
-        if: steps.merge.outputs.conflict == 'true'
+        if: steps.merge.outputs.has_changes == 'true' && (steps.merge.outputs.conflict == 'false' || steps.outcome.outputs.ready_for_pr == 'true')
         env:
           GH_TOKEN: ${{ secrets.SYNC_UPSTREAM_TOKEN }}
           BRANCH: ${{ steps.branch.outputs.branch }}
           REFRESH: ${{ steps.branch.outputs.refresh }}
+          MERGE_CONFLICT: ${{ steps.merge.outputs.conflict }}
           RESOLVED: ${{ steps.outcome.outputs.claude_resolved }}
-        run: |
-          set -euo pipefail
+          CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
+          CLAUDE_STRUCTURED_OUTPUT: ${{ steps.claude.outputs.structured_output }}
+        run: python3 "$SYNC_SCRIPT_DIR/upsert_pr.py"
 
-          TOTAL_CHANGED_FILES=$(git diff --name-only origin/main...HEAD | wc -l | tr -d ' ')
-          CONFLICT_FILE_COUNT=$(wc -l < .git/sync-upstream-conflict-files.txt | tr -d ' ')
-          CONFLICT_FILES_PREVIEW=$(head -n 30 .git/sync-upstream-conflict-files.txt | sed 's/^/- `/; s/$/`/')
-          CLAUDE_CHANGE_SUMMARY=$(cat .git/sync-upstream-claude-summary.md)
-          if [ "$CONFLICT_FILE_COUNT" -gt 30 ]; then
-            CONFLICT_FILES_PREVIEW="${CONFLICT_FILES_PREVIEW}"$'\n'"- _... and $((CONFLICT_FILE_COUNT - 30)) more conflicted files_"
-          fi
-
-          if [ "$RESOLVED" = "true" ]; then
-            TITLE="Upstream sync — Claude resolved, please review"
-            BODY=$(cat <<'EOF'
-          Automated upstream sync encountered merge conflicts. **Claude attempted to resolve them automatically.**
-
-          **What happened:**
-          - Attempted to merge `${{ env.UPSTREAM_REPO }}:${{ env.UPSTREAM_BRANCH }}` into `main`
-          - Merge conflicts were detected
-          - Claude Code resolved the conflicts and committed the result
-          - Total files changed in this sync branch: __TOTAL_CHANGED_FILES__
-          - Files with merge conflicts: __CONFLICT_FILE_COUNT__
-
-          **What to do:**
-          1. Review the conflicted files first — Claude's resolution is best-effort
-          2. If correct, approve and merge
-          3. If something is wrong, push fixes to this branch (subsequent runs will not force-overwrite human commits)
-
-          **Conflicted files to review first:**
-          __CONFLICT_FILES_PREVIEW__
-
-          **Claude change summary:**
-          __CLAUDE_CHANGE_SUMMARY__
-
-          cc @${{ github.repository_owner }}
-
-          _Created automatically by the sync-upstream workflow._
-          EOF
-            )
-          else
-            TITLE="Upstream sync — manual merge needed"
-            BODY=$(cat <<'EOF'
-          Automated upstream sync encountered merge conflicts. Claude was unable to resolve them safely.
-
-          **What happened:**
-          - Attempted to merge `${{ env.UPSTREAM_REPO }}:${{ env.UPSTREAM_BRANCH }}` into `main`
-          - Merge conflicts were detected
-          - Conflict markers remain in the diff
-          - Total files changed in this sync branch: __TOTAL_CHANGED_FILES__
-          - Files with merge conflicts: __CONFLICT_FILE_COUNT__
-
-          **What to do:**
-          1. Check the conflicted files listed below first
-          2. Merge `main` into this branch (or rebase) and resolve conflicts
-          3. Push and merge this PR
-
-          **Conflicted files to review first:**
-          __CONFLICT_FILES_PREVIEW__
-
-          **Claude change summary:**
-          __CLAUDE_CHANGE_SUMMARY__
-
-          cc @${{ github.repository_owner }}
-
-          _Created automatically by the sync-upstream workflow._
-          EOF
-            )
-          fi
-
-          BODY=${BODY//__TOTAL_CHANGED_FILES__/$TOTAL_CHANGED_FILES}
-          BODY=${BODY//__CONFLICT_FILE_COUNT__/$CONFLICT_FILE_COUNT}
-          BODY=${BODY//__CONFLICT_FILES_PREVIEW__/$CONFLICT_FILES_PREVIEW}
-          BODY=${BODY//__CLAUDE_CHANGE_SUMMARY__/$CLAUDE_CHANGE_SUMMARY}
-
-          if [ "$REFRESH" = "true" ]; then
-            gh pr edit "$BRANCH" --repo ${{ github.repository }} --title "$TITLE" --body "$BODY"
-            gh pr comment "$BRANCH" --repo ${{ github.repository }} \
-              --body "Branch refreshed by sync workflow run #${{ github.run_id }}. cc @${{ github.repository_owner }}"
-          else
-            gh pr create \
-              --title "$TITLE" \
-              --body "$BODY" \
-              --base main \
-              --head "$BRANCH" \
-              --label "report: include" \
-              --repo ${{ github.repository }}
-          fi
+      - name: Create or update manual-resolution issue
+        if: steps.merge.outputs.conflict == 'true' && steps.outcome.outputs.ready_for_pr != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_UPSTREAM_TOKEN }}
+          CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
+          CLAUDE_AVAILABLE: ${{ steps.claude_config.outputs.available }}
+          MANUAL_REASON: ${{ steps.outcome.outputs.manual_reason }}
+        run: python3 "$SYNC_SCRIPT_DIR/upsert_manual_issue.py"
