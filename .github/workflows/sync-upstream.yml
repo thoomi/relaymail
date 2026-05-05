@@ -125,7 +125,7 @@ jobs:
             5. Do NOT run `git commit`. Do NOT amend or push. Just stage what you resolved.
             6. End with a one-paragraph summary of files resolved vs. left for human.
           claude_args: |
-            --max-turns 8
+            --max-turns 16
             --allowedTools "Bash(git status:*),Bash(git diff:*),Bash(git add:*),Bash(git ls-files:*),Bash(git log:*),Read,Edit,Glob,Grep"
 
       - name: Commit merge result
