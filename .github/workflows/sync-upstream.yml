@@ -108,7 +108,7 @@ jobs:
       - name: Resolve conflicts with Claude
         id: claude
         if: steps.merge.outputs.conflict == 'true'
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@2cc1ac1331eac7a6a96d716dd204dd2888d0fcd2 # v1
         continue-on-error: true
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
