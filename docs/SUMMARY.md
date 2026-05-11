@@ -29,6 +29,7 @@ generator, in this case, **mdbook**. It defines the structure and navigation of 
   - [Design System](architecture/design-system.md)
   - [User Flows](architecture/user-flows.md)
   - [Settings](architecture/settings.md)
+  - [Feature Flags](architecture/feature-flags.md)
   - [Legacy Module Integration](architecture/legacy-module-integration.md)
   - [Architecture Decision Records](architecture/adr/README.md)
     - [Accepted]()
