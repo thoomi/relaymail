@@ -20,7 +20,7 @@ dependencies {
     implementation(projects.core.common)
     implementation(projects.core.ui.compose.common)
     implementation(projects.core.ui.compose.designsystem)
-    implementation(projects.core.ui.compose.theme2.common)
+    implementation(projects.core.ui.compose.theme2)
     implementation(projects.core.ui.theme.api)
 
     implementation(libs.androidx.activity.compose)
@@ -34,6 +34,6 @@ dependencies {
     testImplementation(projects.core.testing)
     testImplementation(projects.core.android.testing)
     testImplementation(projects.core.ui.compose.testing)
-    testImplementation(projects.core.ui.compose.theme2.k9mail)
+    testImplementation(projects.core.ui.legacy.theme2.k9mail)
     testImplementation(libs.androidx.test.core)
 }
