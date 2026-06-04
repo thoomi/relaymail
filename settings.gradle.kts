@@ -123,6 +123,7 @@ include(
 include(
     ":feature:navigation:drawer:api",
     ":feature:navigation:drawer:dropdown",
+    ":feature:changelog:api",
 )
 
 include(
@@ -293,3 +294,4 @@ check(JavaVersion.current().isCompatibleWith(JavaVersion.VERSION_21)) {
         https://developer.android.com/build/jdks#jdk-config-in-studio
     """.trimIndent()
 }
+include(":feature:changelog:internal")
