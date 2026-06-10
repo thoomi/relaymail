@@ -100,10 +100,12 @@ internal class DefaultAppLockCoordinator(
                     )
                 }
             }
+
             AppLockState.Disabled, is AppLockState.Unavailable -> {
                 // Was disabled/unavailable, now enabled and available - require auth
                 _state.value = AppLockState.Locked
             }
+
             // Locked, Unlocking, Failed - keep current state, UI will call ensureUnlocked
             AppLockState.Locked, is AppLockState.Unlocking, is AppLockState.Failed -> Unit
         }
@@ -115,6 +117,7 @@ internal class DefaultAppLockCoordinator(
             is AppLockState.Unlocked -> {
                 _state.value = current.copy(lastHiddenAtElapsedMillis = clock())
             }
+
             is AppLockState.Unlocking -> {
                 // Don't reset when authentication is actively in progress (device credential flow).
                 // The auth coroutine will set the correct state when it completes:
@@ -125,10 +128,12 @@ internal class DefaultAppLockCoordinator(
                     _state.value = AppLockState.Locked
                 }
             }
+
             is AppLockState.Failed -> {
                 // Cancel failure state when backgrounded — allows retry on next foreground
                 _state.value = AppLockState.Locked
             }
+
             AppLockState.Disabled, AppLockState.Locked, is AppLockState.Unavailable -> Unit
         }
     }
@@ -141,6 +146,7 @@ internal class DefaultAppLockCoordinator(
                 is AppLockState.Unlocked -> {
                     _state.value = AppLockState.Locked
                 }
+
                 is AppLockState.Unlocking -> {
                     // Don't interrupt active authentication — the BiometricPrompt will be
                     // dismissed by the system (ERROR_CANCELED → Interrupted → Locked) via
@@ -150,6 +156,7 @@ internal class DefaultAppLockCoordinator(
                         _state.value = AppLockState.Locked
                     }
                 }
+
                 AppLockState.Disabled, AppLockState.Locked,
                 is AppLockState.Failed, is AppLockState.Unavailable,
                 -> Unit
@@ -172,14 +179,17 @@ internal class DefaultAppLockCoordinator(
                 // Already unlocked
                 true
             }
+
             is AppLockState.Unlocking -> {
                 // Already unlocking - caller should not show duplicate prompt
                 false
             }
+
             is AppLockState.Unavailable -> {
                 // Auth unavailable - cannot unlock, UI should show guidance
                 false
             }
+
             AppLockState.Locked, is AppLockState.Failed -> {
                 // Transition to Unlocking
                 _state.value = AppLockState.Unlocking(nextAttemptId++)
@@ -205,6 +215,7 @@ internal class DefaultAppLockCoordinator(
                 AppLockState.Disabled, is AppLockState.Unavailable -> {
                     _state.value = AppLockState.Locked
                 }
+
                 // Unlocking/Failed/Locked/Unlocked: keep as-is. In practice this branch is
                 // unreachable because the settings screen is behind the lock overlay, so the
                 // user cannot toggle app lock while locked out.
@@ -226,6 +237,7 @@ internal class DefaultAppLockCoordinator(
                     _state.value = AppLockState.Disabled
                 }
             }
+
             AppLockState.Disabled, AppLockState.Locked,
             is AppLockState.Unlocking, is AppLockState.Unlocked, is AppLockState.Failed,
             -> Unit
@@ -290,6 +302,7 @@ internal class DefaultAppLockCoordinator(
     private fun resolveAuthResult(result: AppLockResult): AppLockState {
         return when (result) {
             is Outcome.Success -> AppLockState.Unlocked(lastHiddenAtElapsedMillis = null)
+
             is Outcome.Failure -> {
                 // System interruptions (rotation, backgrounding) go back to Locked
                 if (result.error is AppLockError.Interrupted) {

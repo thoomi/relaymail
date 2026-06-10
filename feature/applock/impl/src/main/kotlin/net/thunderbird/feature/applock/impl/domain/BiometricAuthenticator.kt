@@ -130,6 +130,7 @@ internal fun mapErrorCode(errorCode: Int, errString: String): AppLockError {
         -> AppLockError.Interrupted
 
         BiometricPrompt.ERROR_LOCKOUT -> AppLockError.Lockout(durationSeconds = AppLockError.Lockout.DURATION_UNKNOWN)
+
         BiometricPrompt.ERROR_LOCKOUT_PERMANENT -> AppLockError.Lockout(
             durationSeconds = AppLockError.Lockout.DURATION_PERMANENT,
         )

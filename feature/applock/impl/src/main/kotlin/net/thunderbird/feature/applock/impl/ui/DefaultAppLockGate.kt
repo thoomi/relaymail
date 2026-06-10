@@ -133,6 +133,7 @@ internal class DefaultAppLockGate(
                     launchAuthentication()
                 }
             }
+
             AppLockState.Locked -> {
                 // Request unlock - coordinator will transition to Unlocking
                 if (coordinator.ensureUnlocked()) {
@@ -143,13 +144,16 @@ internal class DefaultAppLockGate(
                     }
                 }
             }
+
             is AppLockState.Failed -> {
                 // Don't auto-retry on failure to prevent infinite prompt loop.
                 // User can close app and reopen to retry. Overlay remains visible.
             }
+
             is AppLockState.Unavailable -> {
                 // Auth unavailable - show guidance overlay, no auth to trigger
             }
+
             AppLockState.Disabled, is AppLockState.Unlocked -> {
                 // Nothing to do
             }
@@ -257,17 +261,21 @@ internal class DefaultAppLockGate(
     private fun showUnavailableOverlay(reason: UnavailableReason) {
         val actionButtonText = when (reason) {
             UnavailableReason.NOT_ENROLLED -> activity.getString(R.string.applock_button_open_settings)
+
             UnavailableReason.TEMPORARILY_UNAVAILABLE,
             UnavailableReason.UNKNOWN,
             -> activity.getString(R.string.applock_button_try_again)
+
             UnavailableReason.NO_HARDWARE -> null
         }
 
         val onActionClick: (() -> Unit)? = when (reason) {
             UnavailableReason.NOT_ENROLLED -> ::openSecuritySettings
+
             UnavailableReason.TEMPORARILY_UNAVAILABLE,
             UnavailableReason.UNKNOWN,
             -> ::onUnavailableRetryClicked
+
             UnavailableReason.NO_HARDWARE -> null
         }
 
@@ -313,10 +321,13 @@ internal class DefaultAppLockGate(
     private fun getUnavailableHint(reason: UnavailableReason): String {
         return when (reason) {
             UnavailableReason.NO_HARDWARE -> activity.getString(R.string.applock_error_not_available)
+
             UnavailableReason.NOT_ENROLLED -> activity.getString(R.string.applock_requirements_hint)
+
             UnavailableReason.TEMPORARILY_UNAVAILABLE -> {
                 activity.getString(R.string.applock_error_temporarily_unavailable)
             }
+
             UnavailableReason.UNKNOWN -> activity.getString(R.string.applock_error_unknown_unavailable)
         }
     }
@@ -346,15 +357,21 @@ internal class DefaultAppLockGate(
     private fun getErrorMessage(error: AppLockError): String {
         return when (error) {
             is AppLockError.NotAvailable -> activity.getString(R.string.applock_error_not_available)
+
             is AppLockError.NotEnrolled -> activity.getString(R.string.applock_error_not_enrolled)
+
             is AppLockError.Failed -> activity.getString(R.string.applock_error_failed)
+
             is AppLockError.Canceled -> activity.getString(R.string.applock_error_canceled)
+
             is AppLockError.Interrupted -> activity.getString(R.string.applock_error_failed)
+
             is AppLockError.Lockout -> {
                 when {
                     error.durationSeconds == AppLockError.Lockout.DURATION_PERMANENT -> {
                         activity.getString(R.string.applock_error_lockout_permanent)
                     }
+
                     error.durationSeconds > 0 -> {
                         // Temporary lockout with known duration
                         activity.resources.getQuantityString(
@@ -363,12 +380,14 @@ internal class DefaultAppLockGate(
                             error.durationSeconds,
                         )
                     }
+
                     else -> {
                         // Temporary lockout with unknown duration
                         activity.getString(R.string.applock_error_lockout_unknown)
                     }
                 }
             }
+
             is AppLockError.UnableToStart -> {
                 activity.getString(R.string.applock_error_unable_to_start, error.message)
             }
