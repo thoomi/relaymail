@@ -65,12 +65,12 @@ dependencyGuardPlugin = "0.5.0"
 detektPlugin = "1.23.8"
 detektPluginCompose = "0.4.27"
 fastAdapter = "5.7.0"
-forkhandlesBom = "2.25.5.0"
+forkhandlesBom = "2.25.6.0"
 glide = "4.16.0"
 gradle = "9.5.1"
 gradleSha256 = "c72fb9991f6025cbe337d52ba77e531b3faf62bdd3e348fe1ccee9f51c71adb0"
 icu4j = "78.3"
-javaDiffUtils = "4.16"
+javaDiffUtils = "4.17"
 jcipAnnotations = "1.0"
 jetbrainsAnnotations = "26.1.0"
 jetbrainsCompose = "1.11.0"
@@ -92,10 +92,10 @@ kotlinBom = "2.3.21"
 # In case Gradle has a newer version of Kotlin, we need to update kotlinBom to the same version of newer to avoid
 # version conflicts with the Gradle Kotlin plugin.
 kotlinGradleBom = "2.3.20"
-kotlinKsp = "2.3.8"
+kotlinKsp = "2.3.9"
 kotlinxCoroutines = "1.11.0"
 kotlinxCollectionsImmutable = "0.4.0"
-kotlinxDateTime = "0.7.1"
+kotlinxDateTime = "0.8.0"
 kotlinxIoCore = "0.9.0"
 kotlinxSerialization = "1.11.0"
 kover = "0.9.8"
@@ -104,7 +104,7 @@ ktor = "3.5.0"
 kxml2 = "1.0"
 landscapist = "2.9.5"
 leakcanary = "2.14"
-logbackClassic = "1.5.32"
+logbackClassic = "1.5.33"
 mime4j = "0.8.14"
 minidns = "1.1.1"
 mockito = "5.23.0"
@@ -118,7 +118,7 @@ preferencesFix = "1.1.0"
 robolectric = "4.16.1"
 safeContentResolver = "1.0.0"
 searchPreference = "2.7.3"
-spotlessPlugin = "8.4.0"
+spotlessPlugin = "8.6.0"
 timber = "5.0.1"
 turbine = "1.2.1"
 uri = "0.0.21"
@@ -149,6 +149,8 @@ dev-mokkery = { id = "dev.mokkery", version.ref = "mokkery" }
 tb-app-badging = { id = "net.thunderbird.gradle.plugin.app.badging" }
 tb-app-versioning = { id = "net.thunderbird.gradle.plugin.app.versioning" }
 tb-quality-code-coverage = { id = "net.thunderbird.gradle.plugin.quality.coverage" }
+tb-quality-detekt = { id = "net.thunderbird.gradle.plugin.quality.detekt" }
+tb-quality-spotless = { id = "net.thunderbird.gradle.plugin.quality.spotless" }
 
 [libraries]
 android-billing = { module = "com.android.billingclient:billing", version.ref = "androidBilling" }

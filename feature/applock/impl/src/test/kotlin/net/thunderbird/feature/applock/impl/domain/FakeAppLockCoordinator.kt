@@ -97,8 +97,11 @@ internal class FakeAppLockCoordinator(
 
         return when (_state.value) {
             AppLockState.Disabled, is AppLockState.Unlocked -> true
+
             is AppLockState.Unlocking -> false
+
             is AppLockState.Unavailable -> false
+
             AppLockState.Locked, is AppLockState.Failed -> {
                 _state.value = AppLockState.Unlocking(attemptId = nextAttemptId++)
                 true
@@ -145,8 +148,11 @@ internal class FakeAppLockCoordinator(
             if ((_state.value as? AppLockState.Unlocking)?.attemptId == unlocking.attemptId) {
                 _state.value = when {
                     result is Outcome.Success -> AppLockState.Unlocked()
+
                     result is Outcome.Failure && result.error is AppLockError.Interrupted ->
-                        AppLockState.Locked // matches resolveAuthResult() in real coordinator
+                        AppLockState.Locked
+
+                    // matches resolveAuthResult() in real coordinator
                     else -> AppLockState.Failed((result as Outcome.Failure).error)
                 }
             }

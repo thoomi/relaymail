@@ -34,6 +34,7 @@ internal fun AppLockSettingsScreen(
     val (state, dispatch) = viewModel.observe { effect ->
         when (effect) {
             Effect.NavigateBack -> onBack()
+
             Effect.RequestAuthentication -> {
                 val activity = context as? FragmentActivity ?: return@observe
                 val authenticator = authenticatorFactory.create(activity)
