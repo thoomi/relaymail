@@ -25,11 +25,12 @@ dependencies {
 
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.biometric)
-    implementation(libs.androidx.compose.material3)
+    implementation(libs.jetbrains.compose.material3)
     implementation(libs.androidx.lifecycle.process)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.koin.android)
+    implementation(libs.koin.compose.viewmodel)
 
     testImplementation(projects.core.testing)
     testImplementation(projects.core.android.testing)

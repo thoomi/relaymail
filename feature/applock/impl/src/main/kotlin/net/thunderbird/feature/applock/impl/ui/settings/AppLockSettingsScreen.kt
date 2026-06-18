@@ -20,8 +20,8 @@ import net.thunderbird.feature.applock.api.AppLockAuthenticatorFactory
 import net.thunderbird.feature.applock.impl.R
 import net.thunderbird.feature.applock.impl.ui.settings.AppLockSettingsContract.Effect
 import net.thunderbird.feature.applock.impl.ui.settings.AppLockSettingsContract.Event
-import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 internal fun AppLockSettingsScreen(

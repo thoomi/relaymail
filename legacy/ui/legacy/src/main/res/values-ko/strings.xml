@@ -437,7 +437,6 @@
     <string name="account_setup_push_limit_500">500개 폴더</string>
     <string name="account_setup_push_limit_1000">1000개 폴더</string>
     <string name="animations_title">애니메이션</string>
-    <string name="animations_summary">매끄러운 시각 효과 사용</string>
     <string name="integrated_inbox_title">통합 편지함</string>
     <string name="integrated_inbox_detail">통합 폴더의 모든 이메일</string>
     <string name="folder_settings_include_in_integrated_inbox_label">통합</string>
@@ -875,7 +874,6 @@
     <string name="dialog_confirm_empty_spam_message">스팸 폴더를 비우시겠습니까?</string>
     <string name="global_settings_splitview_when_unfolded">기기를 펼쳤을 때</string>
     <string name="expand_content_description">펼치기</string>
-    <string name="encrypted_attachment_title">암호화된 첨부 파일</string>
     <string name="ac_transfer_intro">Autocrypt 설정 메시지는 종단간 설정을 다른 기기와 안전하게 공유합니다.</string>
     <string name="action_copy_email_address">이메일 주소 복사</string>
     <string name="action_copy_name_and_email_address">이름과 이메일 주소 복사</string>

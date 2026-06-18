@@ -17,7 +17,7 @@
     <string name="changelog_loading_error">Het laden van het wijzigingslogboek is mislukt.</string>
     <string name="changelog_version_title">Versie %s</string>
     <string name="changelog_recent_changes_title">Wat is er nieuw</string>
-    <string name="changelog_show_recent_changes">Laat wijzigingen zien als de app recent is bijgewerkt</string>
+    <string name="changelog_show_recent_changes">Laat wijzigingen zien als de app recentelijk is bijgewerkt</string>
     <!--Displayed in a "snack bar" at the bottom of the screen when the app was updated.-->
     <string name="changelog_snackbar_text">Ontdek wat er nieuw is in deze versie</string>
     <!--Button text of the "snack bar" that is displayed when the app was updated.-->
@@ -517,7 +517,6 @@
     <string name="account_setup_push_limit_500">500 mappen</string>
     <string name="account_setup_push_limit_1000">1000 mappen</string>
     <string name="animations_title">Animatie</string>
-    <string name="animations_summary">Opvallende visuele effecten gebruiken</string>
     <string name="show_unified_inbox_title">Samengevoegd Postvak IN tonen</string>
     <string name="show_starred_count_title">Aantal berichten met een ster tonen</string>
     <string name="integrated_inbox_title">Samengevoegd Postvak IN</string>
@@ -924,7 +923,6 @@
     <string name="message_view_attachments_title">Bijlagen</string>
     <string name="message_view_attachments_save_all">Alles opslaan</string>
     <string name="general_settings_message_list_date_time_format_iso">ISO</string>
-    <string name="encrypted_attachment_title">Versleutelde bijlage</string>
     <string name="no_network_message_will_be_sent_later_toast">Offline. Bericht zal worden verzonden wanneer de verbinding beschikbaar is</string>
     <string name="notification_actions_settings_title">Meldingsacties</string>
     <string name="notification_actions_settings_summary">Kies welke acties in e-mailmeldingen verschijnen</string>
@@ -948,4 +946,7 @@
     <string name="changelog_type_fixed_text">GEFIXT</string>
     <string name="notification_show_contact_picture_title">Contactafbeeldingen in notificaties tonen</string>
     <string name="notification_show_contact_picture_summary">Afzenderavatars in nieuw-berichtnotificaties tonen</string>
+    <string name="animation_setting_on">Aan</string>
+    <string name="animation_setting_off">Uit</string>
+    <string name="animation_setting_follow_system">Systeemstandaard gebruiken</string>
 </resources>

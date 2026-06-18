@@ -516,7 +516,6 @@
     <string name="account_setup_push_limit_500">500 Ordner</string>
     <string name="account_setup_push_limit_1000">1000 Ordner</string>
     <string name="animations_title">Animationen</string>
-    <string name="animations_summary">Aufwändige visuelle Effekte verwenden</string>
     <string name="show_unified_inbox_title">Gemeinsamen Posteingang anzeigen</string>
     <string name="show_starred_count_title">Anzahl der wichtigen Nachrichten anzeigen</string>
     <string name="integrated_inbox_title">Gemeinsamer Posteingang</string>
@@ -928,7 +927,6 @@ Du kannst diese Nachricht aufheben und sie als Backup für deinen geheimen Schl�
     <string name="message_view_attachments_view">Anzeigen</string>
     <string name="message_view_attachments_title">Anhänge</string>
     <string name="message_view_attachments_save_all">Alle speichern</string>
-    <string name="encrypted_attachment_title">Verschlüsselter Anhang</string>
     <string name="no_network_message_will_be_sent_later_toast">Offline. Die Nachricht wird gesendet, sobald eine Verbindung verfügbar ist.</string>
     <string name="notification_actions_settings_title">Benachrichtigungsaktionen</string>
     <string name="notification_actions_settings_summary">Auswählen, welche Aktionen in E-Mail-Benachrichtigungen angezeigt werden sollen</string>
@@ -952,4 +950,7 @@ Du kannst diese Nachricht aufheben und sie als Backup für deinen geheimen Schl�
     <string name="changelog_type_changed_text">GEÄNDERT</string>
     <string name="notification_show_contact_picture_title">Kontaktbilder in Benachrichtigungen anzeigen</string>
     <string name="notification_show_contact_picture_summary">Profilbild der Absender in Benachrichtigungen über neue Nachrichten anzeigen</string>
+    <string name="animation_setting_on">Ein</string>
+    <string name="animation_setting_off">Aus</string>
+    <string name="animation_setting_follow_system">Systemstandard verwenden</string>
 </resources>

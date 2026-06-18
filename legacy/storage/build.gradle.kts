@@ -21,9 +21,11 @@ dependencies {
     testImplementation(projects.core.logging.testing)
     testImplementation(projects.mail.testing)
     testImplementation(projects.feature.telemetry.noop)
+    testImplementation(projects.core.featureflag)
+
     testImplementation(libs.robolectric)
     testImplementation(libs.commons.io)
-    testImplementation(projects.core.featureflag)
+    testImplementation(libs.mockito.kotlin)
 }
 
 android {
