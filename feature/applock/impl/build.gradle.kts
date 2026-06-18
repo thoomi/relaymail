@@ -30,6 +30,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.koin.android)
+    implementation(libs.koin.compose.viewmodel)
 
     testImplementation(projects.core.testing)
     testImplementation(projects.core.android.testing)
