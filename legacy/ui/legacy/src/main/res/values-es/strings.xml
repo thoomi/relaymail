@@ -519,7 +519,6 @@
     <string name="account_setup_push_limit_500">500 carpetas</string>
     <string name="account_setup_push_limit_1000">1000 carpetas</string>
     <string name="animations_title">Animaciones</string>
-    <string name="animations_summary">Utilizar animaciones y otros efectos en la interfaz</string>
     <string name="show_unified_inbox_title">Ver bandeja de entrada unificada</string>
     <string name="show_starred_count_title">Ver número de correos destacados</string>
     <string name="integrated_inbox_title">Entrada unificada</string>
@@ -920,7 +919,6 @@
     <string name="sort_by_then_by">Luego por…</string>
     <string name="general_settings_message_list_date_time_format_full">Completo</string>
     <string name="global_settings_splitview_when_unfolded">Cuando el dispositivo esté desencarpetado</string>
-    <string name="encrypted_attachment_title">Adjunto cifrado</string>
     <plurals name="message_view_attachment_summary">
         <item quantity="one"><xliff:g id="count">%1$d</xliff:g> Adjunto (<xliff:g id="size">%2$s</xliff:g>)</item>
         <item quantity="many"><xliff:g id="count">%1$d</xliff:g> Adjuntos (<xliff:g id="size">%2$s</xliff:g>)</item>
@@ -951,4 +949,11 @@
     <string name="notification_action_star">Destacar</string>
     <string name="notification_show_contact_picture_title">Mostrar imágenes de contactos en notificaciones</string>
     <string name="notification_show_contact_picture_summary">Mostrar avatares de remitentes en notificaciones de nuevos mensajes</string>
+    <string name="animation_setting_on">Sí</string>
+    <string name="animation_setting_off">No</string>
+    <string name="animation_setting_follow_system">Utilizar ajustes del sistema</string>
+    <string name="changelog_type_fixed_text">ARREGLO</string>
+    <string name="changelog_type_changed_text">CAMBIOS</string>
+    <string name="changelog_type_new_text">NOVEDADES</string>
+    <string name="changelog_latest_label_text">RECIENTES</string>
 </resources>

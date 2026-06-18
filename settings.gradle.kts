@@ -196,14 +196,17 @@ include(
 )
 
 include(
+    ":core:ui:common",
     ":core:ui:contract",
     ":core:ui:setting:api",
     ":core:ui:setting:component",
     ":core:ui:setting:impl-dialog",
+    ":core:ui:testing",
 )
 
 include(
     ":core:ui:account",
+    ":core:ui:animation:manager",
     ":core:ui:compose:common",
     ":core:ui:compose:designsystem",
     ":core:ui:compose:testing",
