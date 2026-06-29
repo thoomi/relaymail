@@ -216,15 +216,14 @@ androidComponents {
 
 // Initialize placeholders for the product flavor and build type combinations needed for dependency declarations.
 // They are required to avoid "Unresolved configuration" errors.
-val fullDebugImplementation by configurations.creating
-val fullDailyImplementation by configurations.creating
-val fullBetaImplementation by configurations.creating
-val fullReleaseImplementation by configurations.creating
+val fullDebugImplementation = configurations.create("fullDebugImplementation")
+val fullDailyImplementation = configurations.create("fullDailyImplementation")
+val fullBetaImplementation = configurations.create("fullBetaImplementation")
+val fullReleaseImplementation = configurations.create("fullReleaseImplementation")
 
 dependencies {
     implementation(projects.appCommon)
     implementation(projects.core.ui.compose.common)
-    implementation(projects.core.ui.compose.theme2)
     implementation(projects.core.ui.legacy.theme2.thunderbird)
     implementation(projects.feature.launcher)
 
