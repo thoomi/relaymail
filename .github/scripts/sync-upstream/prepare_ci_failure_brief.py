@@ -65,8 +65,9 @@ def main() -> None:
     if not settled:
         # Other CI workflows for this commit are still running. Acting now would
         # build the brief from a partial failure picture (e.g. only the formatting
-        # check, before the compile error lands). Defer; the last workflow to
-        # complete re-triggers this with everything settled.
+        # check, before the compile error lands). Defer; the workflow triggers on
+        # both success and failure completions, so the last CI workflow to finish
+        # re-runs this with everything settled regardless of its own result.
         LOGGER.info("CI for %s has not settled yet; deferring auto-fix.", head_sha)
         write_text(BRIEF_PATH, "# CI Failure Brief\n\nCI has not settled yet; deferring.\n")
         github_output("has_failures", False)
