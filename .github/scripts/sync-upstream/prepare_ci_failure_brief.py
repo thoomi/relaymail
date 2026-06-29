@@ -40,7 +40,7 @@ SIGNAL_PATTERNS = [
         r"\[[A-Z][A-Za-z]+\]\s*$",  # detekt rule id trailer, e.g. [ParameterNaming]
         r"weighted issues",
         r"Analysis failed with",
-        r"format violations|spotlessCheck",
+        r"format violations|Run '.*spotlessApply",
         r"Dependency Guard|dependencyGuard",
         r"Konsist|KoTest|AssertionError|AssertionFailedError",
         r"There were failing tests",
@@ -60,7 +60,17 @@ def main() -> None:
     pr_number = env("PR_NUMBER", "")
     ci_workflows = parse_workflow_names(env("CI_WORKFLOWS", "\n".join(DEFAULT_CI_WORKFLOWS)))
 
-    failing_runs = find_failing_runs(repository, head_sha, ci_workflows)
+    settled, failing_runs = inspect_ci_runs(repository, head_sha, ci_workflows)
+
+    if not settled:
+        # Other CI workflows for this commit are still running. Acting now would
+        # build the brief from a partial failure picture (e.g. only the formatting
+        # check, before the compile error lands). Defer; the last workflow to
+        # complete re-triggers this with everything settled.
+        LOGGER.info("CI for %s has not settled yet; deferring auto-fix.", head_sha)
+        write_text(BRIEF_PATH, "# CI Failure Brief\n\nCI has not settled yet; deferring.\n")
+        github_output("has_failures", False)
+        return
 
     if not failing_runs:
         LOGGER.info("No failing CI runs found for %s; nothing to fix.", head_sha)
@@ -111,7 +121,12 @@ def parse_workflow_names(raw: str) -> set[str]:
     return {line.strip() for line in raw.splitlines() if line.strip()}
 
 
-def find_failing_runs(repository: str, head_sha: str, ci_workflows: set[str]) -> list[dict]:
+def inspect_ci_runs(repository: str, head_sha: str, ci_workflows: set[str]) -> tuple[bool, list[dict]]:
+    """Return (settled, failing_runs) for the CI workflows on this commit.
+
+    `settled` is False while any matching CI workflow is still running, so the
+    caller can wait for the complete failure picture before acting.
+    """
     runs = json_output(
         [
             "gh",
@@ -128,17 +143,12 @@ def find_failing_runs(repository: str, head_sha: str, ci_workflows: set[str]) ->
         ],
     )
     if not isinstance(runs, list):
-        return []
+        return True, []
 
-    failing = []
-    for run_info in runs:
-        if run_info.get("conclusion") != "failure":
-            continue
-        name = run_info.get("workflowName") or run_info.get("name")
-        if ci_workflows and name not in ci_workflows:
-            continue
-        failing.append(run_info)
-    return failing
+    ci_runs = [run_info for run_info in runs if (run_info.get("workflowName") or run_info.get("name")) in ci_workflows]
+    settled = all(run_info.get("status") == "completed" for run_info in ci_runs)
+    failing = [run_info for run_info in ci_runs if run_info.get("conclusion") == "failure"]
+    return settled, failing
 
 
 def fetch_failed_log(repository: str, run_id: int) -> str:
