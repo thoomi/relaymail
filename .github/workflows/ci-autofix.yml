@@ -22,6 +22,7 @@ concurrency:
 permissions:
   contents: read
   pull-requests: read
+  id-token: write # required by claude-code-action to fetch its OIDC token
 
 defaults:
   run:
@@ -42,11 +43,13 @@ jobs:
   autofix:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
-    # Only act on this fork's own failing sync branches; never on arbitrary or
-    # cross-fork PRs.
+    # Only act on this fork's own sync branches; never on arbitrary or cross-fork
+    # PRs. Trigger on success as well as failure so that when one CI workflow fails
+    # but a slower one passes last, that passing completion still fires a settled
+    # run that processes the earlier failure (the job no-ops if nothing failed).
     if: >
       github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'failure' &&
+      ((github.event.workflow_run.conclusion == 'failure' || github.event.workflow_run.conclusion == 'success') &&
        startsWith(github.event.workflow_run.head_branch, 'sync/upstream-') &&
        github.event.workflow_run.head_repository.full_name == github.repository)
 
