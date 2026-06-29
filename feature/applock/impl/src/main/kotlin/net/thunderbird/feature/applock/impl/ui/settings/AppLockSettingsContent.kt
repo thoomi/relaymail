@@ -1,6 +1,5 @@
 package net.thunderbird.feature.applock.impl.ui.settings
 
-import net.thunderbird.feature.applock.impl.does.not.ExistAutofixCanary
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
