@@ -1,0 +1,176 @@
+name: CI Auto-fix (sync PRs)
+
+# When CI fails on an upstream-sync PR, run Claude to fix the fork-local breakage
+# (typically `feature/applock` adapting to upstream module/API moves) and push the
+# fix to the PR branch so CI re-runs. Gives up after a capped number of attempts and
+# escalates to a human via a PR comment + `needs-human` label.
+
+on:
+  workflow_run:
+    workflows: ["Build - Android", "Quality - Checks", "Build - CLI Tools"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to auto-fix (manual test entry)"
+        required: true
+
+concurrency:
+  group: ci-autofix-${{ github.event.workflow_run.head_branch || github.event.inputs.pr_number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  TARGET_BRANCH: main
+  SYNC_BRANCH_PREFIX: sync/upstream-
+  NEEDS_HUMAN_LABEL: needs-human
+  MAX_AUTOFIX_ATTEMPTS: "2"
+  AUTOFIX_MARKER: "[auto-fix]"
+  CI_WORKFLOWS: |
+    Build - Android
+    Quality - Checks
+    Build - CLI Tools
+
+jobs:
+  autofix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    # Only act on this fork's own failing sync branches; never on arbitrary or
+    # cross-fork PRs.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'failure' &&
+       startsWith(github.event.workflow_run.head_branch, 'sync/upstream-') &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+
+    steps:
+      # The auto-fix logic always comes from the default branch, not the (possibly
+      # older) sync branch, so the first post-merge sync PR is covered too.
+      - name: Checkout default branch for scripts
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          token: ${{ secrets.SYNC_UPSTREAM_TOKEN }}
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 1
+
+      - name: Preserve sync scripts
+        run: |
+          set -euo pipefail
+          SYNC_SCRIPT_DIR="$RUNNER_TEMP/sync-upstream-scripts"
+          mkdir -p "$SYNC_SCRIPT_DIR"
+          cp .github/scripts/sync-upstream/*.py "$SYNC_SCRIPT_DIR/"
+          echo "SYNC_SCRIPT_DIR=$SYNC_SCRIPT_DIR" >> "$GITHUB_ENV"
+
+      - name: Resolve target PR
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_UPSTREAM_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_PR: ${{ github.event.inputs.pr_number }}
+          RUN_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: python3 "$SYNC_SCRIPT_DIR/resolve_autofix_pr.py"
+
+      - name: Stop when no matching sync PR
+        if: steps.pr.outputs.found != 'true'
+        run: echo "No open sync PR for this run; nothing to do."
+
+      - name: Checkout PR branch
+        if: steps.pr.outputs.found == 'true'
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          token: ${{ secrets.SYNC_UPSTREAM_TOKEN }}
+          ref: ${{ steps.pr.outputs.head_branch }}
+          fetch-depth: 0
+
+      - name: Configure git
+        if: steps.pr.outputs.found == 'true'
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # If a newer commit landed after the failing CI run started, that commit has
+      # its own CI cycle; acting on the stale SHA would be wrong.
+      - name: Verify head unchanged
+        id: fresh
+        if: steps.pr.outputs.found == 'true' && github.event_name == 'workflow_run'
+        run: |
+          set -euo pipefail
+          LOCAL_SHA=$(git rev-parse HEAD)
+          if [ "$LOCAL_SHA" != "${{ steps.pr.outputs.head_sha }}" ]; then
+            echo "Head advanced ($LOCAL_SHA != ${{ steps.pr.outputs.head_sha }}); a newer commit exists, skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check attempt cap
+        id: guard
+        if: steps.pr.outputs.found == 'true' && steps.fresh.outputs.skip != 'true'
+        run: python3 "$SYNC_SCRIPT_DIR/check_autofix_attempts.py"
+
+      - name: Prepare failure brief
+        id: brief
+        if: steps.pr.outputs.found == 'true' && steps.fresh.outputs.skip != 'true' && steps.guard.outputs.capped != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_UPSTREAM_TOKEN }}
+          PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+        run: python3 "$SYNC_SCRIPT_DIR/prepare_ci_failure_brief.py"
+
+      - name: Auto-fix with Claude
+        id: claude
+        if: steps.brief.outputs.has_failures == 'true'
+        uses: anthropics/claude-code-action@2cc1ac1331eac7a6a96d716dd204dd2888d0fcd2 # v1
+        continue-on-error: true
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            CI is failing on this fork's upstream-sync PR branch. The fork carries a local-only module `feature/applock` (gradle paths `:feature:applock:api`, `:feature:applock:impl`) that frequently breaks when upstream renames/moves modules, changes test helpers, or adjusts detekt rules. Your task: make the failing CI checks green with the MINIMAL changes needed, scoped to this fork's local code.
+
+            Start by reading `.git/ci-failure-brief.md`. Treat it as the primary context; it contains the condensed failing tasks and error lines. Do not broadly explore the repo; pull extra context only when the brief is insufficient for a specific error.
+
+            1. Read `.git/ci-failure-brief.md`.
+            2. Fix the root cause, not the symptom. Typical upstream-drift fixes:
+               - `Unresolved reference` from a moved/renamed module or package (e.g. design-system modules folded into a new component, a test helper like `MainDispatcherHelper` changing packages): update imports / Gradle dependency coordinates in `feature/applock/**` to the new upstream location. Find the new location with Glob/Grep.
+               - detekt findings (e.g. compose ParameterNaming): adjust the local code to satisfy the rule; do NOT weaken shared detekt config under `config/`.
+               - spotless violations: run `./gradlew spotlessApply`.
+            3. Keep changes confined to `feature/applock/**` and, only if strictly required, the fork's own settings/build files. Never edit upstream source to work around an API you can adapt to.
+            4. Verify your fix where possible using the allowed module gradle tasks (compileDebugKotlin / detekt / testDebugUnitTest for the applock modules).
+            5. Do NOT run `git commit` or `git push` - a later step commits and pushes what you changed. Just edit files (you may `git add` them).
+            6. Return the structured summary: what you changed, which checks you addressed, and any remaining risk a human should know about.
+          claude_args: |
+            --max-turns 24
+            --json-schema '{"type":"object","properties":{"summary":{"type":"string","description":"Reviewer-facing summary of what was changed and why."},"checks_addressed":{"type":"array","items":{"type":"string"}},"remaining_risk":{"type":"string"}},"required":["summary"],"additionalProperties":false}'
+            --allowedTools "Bash(git status:*),Bash(git diff:*),Bash(git add:*),Bash(git ls-files:*),Bash(git log:*),Bash(git show:*),Bash(./gradlew :feature:applock:impl:compileDebugKotlin),Bash(./gradlew :feature:applock:api:compileDebugKotlin),Bash(./gradlew :feature:applock:impl:detekt),Bash(./gradlew :feature:applock:api:detekt),Bash(./gradlew spotlessApply),Bash(./gradlew :feature:applock:impl:testDebugUnitTest),Read,Edit,Glob,Grep"
+
+      - name: Commit and push fix
+        id: push
+        if: steps.brief.outputs.has_failures == 'true'
+        env:
+          CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
+          ATTEMPT: ${{ steps.guard.outputs.attempts }}
+          HEAD_BRANCH: ${{ steps.pr.outputs.head_branch }}
+        run: python3 "$SYNC_SCRIPT_DIR/commit_autofix_result.py"
+
+      - name: Escalate to human
+        if: >
+          steps.pr.outputs.found == 'true' && steps.fresh.outputs.skip != 'true' &&
+          ( steps.guard.outputs.capped == 'true' ||
+            (steps.brief.outputs.has_failures == 'true' &&
+             (steps.claude.outcome != 'success' || steps.push.outputs.no_changes == 'true')) )
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_UPSTREAM_TOKEN }}
+          PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
+          ATTEMPTS: ${{ steps.guard.outputs.attempts }}
+          CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
+          CLAUDE_STRUCTURED_OUTPUT: ${{ steps.claude.outputs.structured_output }}
+        run: python3 "$SYNC_SCRIPT_DIR/escalate_autofix.py"
