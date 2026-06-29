@@ -42,13 +42,13 @@ internal fun AppLockSettingsContent(
         AppLockEnableRow(
             isEnabled = state.isEnabled,
             isAvailable = state.isAuthenticationAvailable,
-            onEnableChanged = { onEvent(Event.OnEnableChanged(it)) },
+            onEnableChange = { onEvent(Event.OnEnableChanged(it)) },
         )
 
         AppLockTimeoutRow(
             timeoutMinutes = state.timeoutMinutes,
             timeoutOptions = state.timeoutOptions,
-            onTimeoutChanged = { onEvent(Event.OnTimeoutChanged(it)) },
+            onTimeoutChange = { onEvent(Event.OnTimeoutChanged(it)) },
             isEnabled = state.isEnabled,
         )
     }
@@ -58,7 +58,7 @@ internal fun AppLockSettingsContent(
 private fun AppLockEnableRow(
     isEnabled: Boolean,
     isAvailable: Boolean,
-    onEnableChanged: (Boolean) -> Unit,
+    onEnableChange: (Boolean) -> Unit,
 ) {
     val contentColor = if (isAvailable) {
         MainTheme.colors.onSurface
@@ -75,7 +75,7 @@ private fun AppLockEnableRow(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(enabled = isAvailable) { onEnableChanged(!isEnabled) }
+            .clickable(enabled = isAvailable) { onEnableChange(!isEnabled) }
             .padding(horizontal = MainTheme.spacings.double, vertical = MainTheme.spacings.oneHalf),
     ) {
         Column(modifier = Modifier.weight(1f)) {
@@ -94,7 +94,7 @@ private fun AppLockEnableRow(
         }
         Checkbox(
             checked = isEnabled,
-            onCheckedChange = onEnableChanged,
+            onCheckedChange = onEnableChange,
             enabled = isAvailable,
         )
     }
@@ -104,7 +104,7 @@ private fun AppLockEnableRow(
 private fun AppLockTimeoutRow(
     timeoutMinutes: Int,
     timeoutOptions: ImmutableList<Int>,
-    onTimeoutChanged: (Int) -> Unit,
+    onTimeoutChange: (Int) -> Unit,
     isEnabled: Boolean,
 ) {
     var showDialog by remember { mutableStateOf(false) }
@@ -142,8 +142,8 @@ private fun AppLockTimeoutRow(
         TimeoutSelectionDialog(
             timeoutMinutes = timeoutMinutes,
             timeoutOptions = timeoutOptions,
-            onTimeoutSelected = { minutes ->
-                onTimeoutChanged(minutes)
+            onTimeoutSelect = { minutes ->
+                onTimeoutChange(minutes)
                 showDialog = false
             },
             onDismiss = { showDialog = false },
@@ -155,7 +155,7 @@ private fun AppLockTimeoutRow(
 private fun TimeoutSelectionDialog(
     timeoutMinutes: Int,
     timeoutOptions: ImmutableList<Int>,
-    onTimeoutSelected: (Int) -> Unit,
+    onTimeoutSelect: (Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
     AlertDialog(
@@ -169,7 +169,7 @@ private fun TimeoutSelectionDialog(
                 RadioButton(
                     selected = minutes == timeoutMinutes,
                     label = formatTimeout(minutes),
-                    onClick = { onTimeoutSelected(minutes) },
+                    onClick = { onTimeoutSelect(minutes) },
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
