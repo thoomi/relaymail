@@ -12,8 +12,8 @@ import kotlin.test.Test
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
-import net.thunderbird.core.outcome.Outcome
 import net.thunderbird.components.ui.testing.coroutines.MainDispatcherHelper
+import net.thunderbird.core.outcome.Outcome
 import net.thunderbird.feature.applock.api.AppLockConfig
 import net.thunderbird.feature.applock.impl.domain.FakeAppLockCoordinator
 import net.thunderbird.feature.applock.impl.ui.settings.AppLockSettingsContract.Effect
