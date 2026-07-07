@@ -13,14 +13,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import app.k9mail.core.ui.compose.designsystem.atom.Surface
-import app.k9mail.core.ui.compose.designsystem.atom.button.ButtonFilled
-import app.k9mail.core.ui.compose.designsystem.atom.button.ButtonOutlined
-import app.k9mail.core.ui.compose.designsystem.atom.text.TextBodyMedium
-import app.k9mail.core.ui.compose.designsystem.atom.text.TextHeadlineSmall
-import net.thunderbird.core.ui.compose.designsystem.atom.icon.Icon
-import net.thunderbird.core.ui.compose.designsystem.atom.icon.Icons
-import net.thunderbird.core.ui.compose.theme2.MainTheme
+import net.thunderbird.components.ui.bolt.atom.Surface
+import net.thunderbird.components.ui.bolt.atom.button.ButtonFilled
+import net.thunderbird.components.ui.bolt.atom.button.ButtonOutlined
+import net.thunderbird.components.ui.bolt.atom.icon.Icon
+import net.thunderbird.components.ui.bolt.atom.icon.Icons
+import net.thunderbird.components.ui.bolt.atom.text.TextBodyMedium
+import net.thunderbird.components.ui.bolt.atom.text.TextHeadlineSmall
+import net.thunderbird.components.ui.bolt.theme.BoltTheme
 import net.thunderbird.feature.applock.impl.R
 
 @Composable
@@ -33,31 +33,31 @@ internal fun AppLockFailedOverlay(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = MainTheme.spacings.quadruple),
+                .padding(horizontal = BoltTheme.spacings.quadruple),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
             Icon(
                 imageVector = Icons.Outlined.ErrorOutline,
                 modifier = Modifier.size(48.dp),
-                tint = MainTheme.colors.error,
+                tint = BoltTheme.colors.error,
             )
-            Spacer(modifier = Modifier.height(MainTheme.spacings.double))
+            Spacer(modifier = Modifier.height(BoltTheme.spacings.double))
             TextHeadlineSmall(
                 text = stringResource(R.string.applock_error_title),
                 textAlign = TextAlign.Center,
             )
-            Spacer(modifier = Modifier.height(MainTheme.spacings.default))
+            Spacer(modifier = Modifier.height(BoltTheme.spacings.default))
             TextBodyMedium(
                 text = errorMessage,
                 textAlign = TextAlign.Center,
             )
-            Spacer(modifier = Modifier.height(MainTheme.spacings.triple))
+            Spacer(modifier = Modifier.height(BoltTheme.spacings.triple))
             ButtonFilled(
                 text = stringResource(R.string.applock_button_unlock),
                 onClick = onRetryClick,
             )
-            Spacer(modifier = Modifier.height(MainTheme.spacings.default))
+            Spacer(modifier = Modifier.height(BoltTheme.spacings.default))
             ButtonOutlined(
                 text = stringResource(R.string.applock_button_close_app),
                 onClick = onCloseClick,
@@ -77,32 +77,32 @@ internal fun AppLockUnavailableOverlay(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = MainTheme.spacings.quadruple),
+                .padding(horizontal = BoltTheme.spacings.quadruple),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
             Icon(
                 imageVector = Icons.Outlined.Warning,
                 modifier = Modifier.size(48.dp),
-                tint = MainTheme.colors.warning,
+                tint = BoltTheme.colors.warning,
             )
-            Spacer(modifier = Modifier.height(MainTheme.spacings.double))
+            Spacer(modifier = Modifier.height(BoltTheme.spacings.double))
             TextHeadlineSmall(
                 text = stringResource(R.string.applock_requirements_title),
                 textAlign = TextAlign.Center,
             )
-            Spacer(modifier = Modifier.height(MainTheme.spacings.default))
+            Spacer(modifier = Modifier.height(BoltTheme.spacings.default))
             TextBodyMedium(
                 text = hintMessage,
                 textAlign = TextAlign.Center,
             )
-            Spacer(modifier = Modifier.height(MainTheme.spacings.triple))
+            Spacer(modifier = Modifier.height(BoltTheme.spacings.triple))
             if (actionButtonText != null && onActionClick != null) {
                 ButtonFilled(
                     text = actionButtonText,
                     onClick = onActionClick,
                 )
-                Spacer(modifier = Modifier.height(MainTheme.spacings.default))
+                Spacer(modifier = Modifier.height(BoltTheme.spacings.default))
             }
             ButtonOutlined(
                 text = stringResource(R.string.applock_button_close_app),

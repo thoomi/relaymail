@@ -16,13 +16,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import app.k9mail.core.ui.compose.designsystem.atom.Checkbox
-import app.k9mail.core.ui.compose.designsystem.atom.button.RadioButton
-import app.k9mail.core.ui.compose.designsystem.atom.text.TextBodyMedium
-import app.k9mail.core.ui.compose.designsystem.atom.text.TextTitleMedium
-import app.k9mail.core.ui.compose.designsystem.organism.AlertDialog
 import kotlinx.collections.immutable.ImmutableList
-import net.thunderbird.core.ui.compose.theme2.MainTheme
+import net.thunderbird.components.ui.bolt.atom.Checkbox
+import net.thunderbird.components.ui.bolt.atom.button.RadioButton
+import net.thunderbird.components.ui.bolt.atom.text.TextBodyMedium
+import net.thunderbird.components.ui.bolt.atom.text.TextTitleMedium
+import net.thunderbird.components.ui.bolt.organism.AlertDialog
+import net.thunderbird.components.ui.bolt.theme.BoltTheme
 import net.thunderbird.feature.applock.impl.R
 import net.thunderbird.feature.applock.impl.ui.settings.AppLockSettingsContract.Event
 import net.thunderbird.feature.applock.impl.ui.settings.AppLockSettingsContract.State
@@ -61,14 +61,14 @@ private fun AppLockEnableRow(
     onEnableChange: (Boolean) -> Unit,
 ) {
     val contentColor = if (isAvailable) {
-        MainTheme.colors.onSurface
+        BoltTheme.colors.onSurface
     } else {
-        MainTheme.colors.onSurface.copy(alpha = 0.38f)
+        BoltTheme.colors.onSurface.copy(alpha = 0.38f)
     }
     val secondaryColor = if (isAvailable) {
-        MainTheme.colors.onSurfaceVariant
+        BoltTheme.colors.onSurfaceVariant
     } else {
-        MainTheme.colors.onSurfaceVariant.copy(alpha = 0.38f)
+        BoltTheme.colors.onSurfaceVariant.copy(alpha = 0.38f)
     }
 
     Row(
@@ -76,7 +76,7 @@ private fun AppLockEnableRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(enabled = isAvailable) { onEnableChange(!isEnabled) }
-            .padding(horizontal = MainTheme.spacings.double, vertical = MainTheme.spacings.oneHalf),
+            .padding(horizontal = BoltTheme.spacings.double, vertical = BoltTheme.spacings.oneHalf),
     ) {
         Column(modifier = Modifier.weight(1f)) {
             TextTitleMedium(
@@ -109,14 +109,14 @@ private fun AppLockTimeoutRow(
 ) {
     var showDialog by remember { mutableStateOf(false) }
     val contentColor = if (isEnabled) {
-        MainTheme.colors.onSurface
+        BoltTheme.colors.onSurface
     } else {
-        MainTheme.colors.onSurface.copy(alpha = 0.38f)
+        BoltTheme.colors.onSurface.copy(alpha = 0.38f)
     }
     val secondaryColor = if (isEnabled) {
-        MainTheme.colors.onSurfaceVariant
+        BoltTheme.colors.onSurfaceVariant
     } else {
-        MainTheme.colors.onSurfaceVariant.copy(alpha = 0.38f)
+        BoltTheme.colors.onSurfaceVariant.copy(alpha = 0.38f)
     }
 
     Row(
@@ -124,7 +124,7 @@ private fun AppLockTimeoutRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(enabled = isEnabled) { showDialog = true }
-            .padding(horizontal = MainTheme.spacings.double, vertical = MainTheme.spacings.oneHalf),
+            .padding(horizontal = BoltTheme.spacings.double, vertical = BoltTheme.spacings.oneHalf),
     ) {
         Column(modifier = Modifier.weight(1f)) {
             TextTitleMedium(
