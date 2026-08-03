@@ -27,9 +27,9 @@ import net.thunderbird.app.common.feature.applock.AppLockActivityLifecycleCallba
 import net.thunderbird.core.common.exception.ExceptionHandler
 import net.thunderbird.core.logging.Logger
 import net.thunderbird.core.logging.file.FileLogSink
-import net.thunderbird.core.logging.legacy.Log
 import net.thunderbird.core.ui.theme.manager.ThemeManager
 import net.thunderbird.feature.applock.api.AppLockGate
+import net.thunderbird.legacy.logging.Log
 import org.koin.android.ext.android.getKoin
 import org.koin.android.ext.android.inject
 import org.koin.core.module.Module
@@ -75,7 +75,7 @@ abstract class BaseApplication : Application(), WorkManagerConfiguration.Provide
             messagingController.addListener(listener)
         }
         val originalHandler = Thread.getDefaultUncaughtExceptionHandler()
-        Thread.setDefaultUncaughtExceptionHandler(ExceptionHandler(originalHandler))
+        Thread.setDefaultUncaughtExceptionHandler(ExceptionHandler(originalHandler, logger))
 
         ProcessLifecycleOwner.get().lifecycle.addObserver(LoggerLifecycleObserver(syncDebugFileLogSink))
 
