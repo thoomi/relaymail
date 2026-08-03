@@ -194,7 +194,6 @@ include(
     ":core:logging:config",
     ":core:logging:impl-composite",
     ":core:logging:impl-console",
-    ":core:logging:impl-legacy",
     ":core:logging:impl-file",
     ":core:logging:testing",
     ":core:file",
@@ -255,6 +254,7 @@ include(
 )
 
 include(
+    ":legacy:logging",
     ":legacy:common",
     ":legacy:core",
     ":legacy:crypto-openpgp",
