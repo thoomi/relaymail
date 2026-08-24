@@ -213,6 +213,8 @@ include(
     ":core:android:network",
     ":core:android:permissions",
     ":core:android:testing",
+    ":core:android:webkit:api",
+    ":core:android:webkit:internal",
 )
 
 include(
