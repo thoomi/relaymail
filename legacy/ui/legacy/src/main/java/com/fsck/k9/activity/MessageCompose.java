@@ -60,6 +60,7 @@ import app.k9mail.core.ui.legacy.designsystem.atom.icon.Icons;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.fsck.k9.activity.compose.MessageComposeInAppNotificationFragment;
+import com.fsck.k9.activity.listener.RecipientExpanderListener;
 import com.fsck.k9.ui.settings.account.AccountSettingsActivity;
 import com.fsck.k9.ui.settings.account.AccountSettingsFragment;
 import com.fsck.k9.message.html.DisplayHtml;
@@ -139,7 +140,7 @@ import com.google.android.material.textview.MaterialTextView;
 import net.thunderbird.core.android.account.MessageFormat;
 import net.thunderbird.core.android.contact.ContactIntentHelper;
 import net.thunderbird.core.featureflag.FeatureFlagProvider;
-import net.thunderbird.core.featureflag.compat.FeatureFlagProviderCompat;
+import net.thunderbird.core.featureflag.keys.GeneratedFeatureFlagKey;
 import net.thunderbird.core.outcome.OutcomeKt;
 import net.thunderbird.core.preference.GeneralSettingsManager;
 import net.thunderbird.core.ui.theme.manager.ThemeManager;
@@ -424,9 +425,21 @@ public class MessageCompose extends BaseActivity implements OnClickListener,
         quotedMessageMvpView.addTextChangedListener(new WrapUriTextWatcher());
 
         subjectView.addTextChangedListener(draftNeedsChangingTextWatcher);
+        subjectView.addTextChangedListener(
+            new RecipientExpanderListener(
+                recipientPresenter::isRecipientExpanderExpanded,
+                this::triggerNonRecipientFieldFocused
+            )
+        );
 
         messageContentView.addTextChangedListener(draftNeedsChangingTextWatcher);
         messageContentView.addTextChangedListener(new WrapUriTextWatcher());
+        messageContentView.addTextChangedListener(
+            new RecipientExpanderListener(
+                recipientPresenter::isRecipientExpanderExpanded,
+                this::triggerNonRecipientFieldFocused
+            )
+        );
 
         /*
          * We set this to invisible by default. Other methods will turn it back on if it's
@@ -1157,10 +1170,16 @@ public class MessageCompose extends BaseActivity implements OnClickListener,
         int id = v.getId();
         if (id == R.id.message_content || id == R.id.subject) {
             if (hasFocus) {
-                replyToPresenter.onNonRecipientFieldFocused();
-                recipientPresenter.onNonRecipientFieldFocused();
+                triggerNonRecipientFieldFocused();
             }
         }
+    }
+
+    // return Unit to allow this::triggerNonRecipientFieldFocused usage with () -> Unit
+    private Unit triggerNonRecipientFieldFocused() {
+        replyToPresenter.onNonRecipientFieldFocused();
+        recipientPresenter.onNonRecipientFieldFocused();
+        return Unit.INSTANCE;
     }
 
     @Override
@@ -1599,6 +1618,15 @@ public class MessageCompose extends BaseActivity implements OnClickListener,
 
         if (identityHeaders.length > 0 && identityHeaders[0] != null) {
             k9identity = IdentityHeaderParser.parse(identityHeaders[0]);
+        } else {
+            // This message has no identity metadata because it wasn't saved as a draft. That's
+            // true of any message we sent (including one stuck in the Outbox after a failed
+            // send), and also of any message we received. Fall back to matching the message's
+            // sender against the account's identities.
+            Identity senderIdentity = IdentityHelper.getSenderIdentityFromMessage(account, message);
+            if (senderIdentity != null) {
+                identity = senderIdentity;
+            }
         }
 
         Identity newIdentity = new Identity();
@@ -1947,8 +1975,8 @@ public class MessageCompose extends BaseActivity implements OnClickListener,
     }
 
     private void initializeInAppNotificationFragment() {
-        if (FeatureFlagProviderCompat
-            .provide(featureFlagProvider, "display_in_app_notifications")
+        if (featureFlagProvider
+            .provide(GeneratedFeatureFlagKey.DISPLAY_IN_APP_NOTIFICATIONS)
             .isDisabledOrUnavailable()) {
             return;
         }
