@@ -16,7 +16,7 @@ android {
 dependencies {
     api(projects.feature.applock.api)
 
-    implementation(projects.core.outcome)
+    implementation(libs.tb.mobile.components.core.outcome)
     implementation(projects.core.common)
     implementation(projects.core.ui.compose.common)
     implementation(projects.core.ui.theme.api)

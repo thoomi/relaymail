@@ -1,6 +1,6 @@
 package net.thunderbird.feature.applock.impl.domain
 
-import net.thunderbird.core.outcome.Outcome
+import net.thunderbird.components.core.outcome.Outcome
 import net.thunderbird.feature.applock.api.AppLockAuthenticator
 import net.thunderbird.feature.applock.api.AppLockError
 import net.thunderbird.feature.applock.api.AppLockResult
