@@ -1,6 +1,6 @@
 package net.thunderbird.feature.applock.api
 
-import net.thunderbird.core.outcome.Outcome
+import net.thunderbird.components.core.outcome.Outcome
 
 /**
  * Type alias for the result of an authentication operation.

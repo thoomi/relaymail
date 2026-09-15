@@ -7,7 +7,7 @@ import assertk.assertions.isInstanceOf
 import assertk.assertions.isTrue
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
-import net.thunderbird.core.outcome.Outcome
+import net.thunderbird.components.core.outcome.Outcome
 import net.thunderbird.feature.applock.api.AppLockAuthenticator
 import net.thunderbird.feature.applock.api.AppLockConfig
 import net.thunderbird.feature.applock.api.AppLockError
