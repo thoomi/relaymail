@@ -34,7 +34,6 @@ dependencies {
     implementation(projects.core.logging.implConsole)
     implementation(projects.core.logging.implFile)
     implementation(projects.legacy.logging)
-
     implementation(projects.core.configstore.api)
     implementation(projects.core.configstore.implBackend)
 
@@ -51,6 +50,7 @@ dependencies {
     implementation(projects.feature.account.setup)
     implementation(projects.feature.applock.api)
     implementation(projects.feature.applock.impl)
+    implementation(projects.feature.funding.api)
     implementation(projects.feature.mail.account.api)
     implementation(projects.feature.mail.message.composer.internal)
     implementation(projects.feature.migration.provider)
@@ -76,6 +76,7 @@ dependencies {
     testImplementation(projects.feature.account.fake)
     testImplementation(projects.core.testing)
     testImplementation(projects.core.android.testing)
+    testImplementation(projects.core.configstore.testing)
     testImplementation(projects.core.logging.testing)
 
     testImplementation(libs.mockito.kotlin)
