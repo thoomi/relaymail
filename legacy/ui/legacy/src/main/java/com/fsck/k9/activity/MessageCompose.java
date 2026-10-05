@@ -64,12 +64,15 @@ import com.fsck.k9.activity.listener.RecipientExpanderListener;
 import com.fsck.k9.ui.settings.account.AccountSettingsActivity;
 import com.fsck.k9.ui.settings.account.AccountSettingsFragment;
 import com.fsck.k9.message.html.DisplayHtml;
+import net.thunderbird.feature.account.AccountIdFactory;
 import net.thunderbird.feature.mail.message.composer.signature.HtmlSignatureSanitizer;
 import com.fsck.k9.ui.helper.DisplayHtmlUiFactory;
 import com.fsck.k9.view.MessageWebView;
 import com.fsck.k9.view.WebViewConfigProvider;
 import kotlin.Unit;
 import net.thunderbird.core.android.account.LegacyAccountDto;
+import net.thunderbird.feature.account.AccountId;
+import net.thunderbird.feature.account.usecase.GetDefaultAccountId;
 import app.k9mail.legacy.di.DI;
 import net.thunderbird.core.android.account.Identity;
 import com.fsck.k9.K9;
@@ -235,6 +238,7 @@ public class MessageCompose extends BaseActivity implements OnClickListener,
     private final DefaultFolderProvider defaultFolderProvider = DI.get(DefaultFolderProvider.class);
     private final MessagingController messagingController = DI.get(MessagingController.class);
     private final Preferences preferences = DI.get(Preferences.class);
+    private final GetDefaultAccountId getDefaultAccountId = DI.get(GetDefaultAccountId.class);
     private final GeneralSettingsManager generalSettingsManager = DI.get(GeneralSettingsManager.class);
     private final WebViewConfigProvider webViewConfigProvider = DI.get(WebViewConfigProvider.class);
     private final DisplayHtml displayHtml = DI.get(DisplayHtmlUiFactory.class).createForMessageCompose();
@@ -279,6 +283,7 @@ public class MessageCompose extends BaseActivity implements OnClickListener,
      * have already been added from the restore of the view state.
      */
     private boolean relatedMessageProcessed = false;
+    private MessageLoaderCallbacks messageLoaderCallbacks;
     private MessageViewInfo currentMessageViewInfo;
 
     private RecipientPresenter recipientPresenter;
@@ -347,7 +352,10 @@ public class MessageCompose extends BaseActivity implements OnClickListener,
         fetchAccount(intent);
 
         if (account == null) {
-            account = preferences.getDefaultAccount();
+            AccountId defaultAccountId = getDefaultAccountId.invoke();
+            if (defaultAccountId != null) {
+                account = preferences.getById(defaultAccountId);
+            }
         }
 
         if (account == null) {
@@ -370,7 +378,7 @@ public class MessageCompose extends BaseActivity implements OnClickListener,
         replyToPresenter = new ReplyToPresenter(replyToView);
 
         RecipientMvpView recipientMvpView = new RecipientMvpView(this);
-        MessageLoaderCallbacks messageLoaderCallbacks = new MessageComposeMessageLoaderCallback(recipientMvpView);
+        messageLoaderCallbacks = new MessageComposeMessageLoaderCallback(recipientMvpView);
         ComposePgpInlineDecider composePgpInlineDecider = new ComposePgpInlineDecider();
         ComposePgpEnableByDefaultDecider composePgpEnableByDefaultDecider = new ComposePgpEnableByDefaultDecider();
 
@@ -644,12 +652,18 @@ public class MessageCompose extends BaseActivity implements OnClickListener,
         String messageReferenceString = intent.getStringExtra(EXTRA_MESSAGE_REFERENCE);
         relatedMessageReference = MessageReference.parse(messageReferenceString);
 
-        final String accountUuid = (relatedMessageReference != null) ?
-            relatedMessageReference.getAccountUuid() :
-            intent.getStringExtra(EXTRA_ACCOUNT);
+        AccountId accountId = null;
+        if (relatedMessageReference != null) {
+            accountId = relatedMessageReference.getAccountId();
+        } else {
+            String accountUuid = intent.getStringExtra(EXTRA_ACCOUNT);
+            if (accountUuid != null) {
+                accountId = AccountIdFactory.INSTANCE.of(accountUuid);
+            }
+        }
 
-        if (accountUuid != null) {
-            account = preferences.getAccount(accountUuid);
+        if (accountId != null) {
+            account = preferences.getById(accountId);
         }
     }
 
@@ -669,7 +683,7 @@ public class MessageCompose extends BaseActivity implements OnClickListener,
     private void triggerIfNeededSentFolderNotFoundInAppNotification() {
         if (account != null && account.isUploadSentMessages() && !account.hasSentFolder()) {
             final SentFolderNotFoundNotification notification = NotificationFactoryCoroutineCompat.create(
-                continuation -> SentFolderNotFoundNotification(account.getUuid(), continuation)
+                continuation -> SentFolderNotFoundNotification(account.getId(), continuation)
             );
             notificationSenderCompat.send(notification, outcome -> {
                 OutcomeKt.handle(
@@ -874,7 +888,7 @@ public class MessageCompose extends BaseActivity implements OnClickListener,
             return;
         }
 
-        if (attachmentPresenter.checkOkForSendingOrDraftSaving()) {
+        if (attachmentPresenter.checkOkForSendingOrDraftSaving(WaitingAction.SEND)) {
             return;
         }
 
@@ -887,7 +901,7 @@ public class MessageCompose extends BaseActivity implements OnClickListener,
             return;
         }
 
-        if (attachmentPresenter.checkOkForSendingOrDraftSaving()) {
+        if (attachmentPresenter.checkOkForSendingOrDraftSaving(WaitingAction.SAVE)) {
             return;
         }
 
@@ -901,6 +915,11 @@ public class MessageCompose extends BaseActivity implements OnClickListener,
         }
 
         if (!changesMadeSinceLastSave) {
+            return;
+        }
+
+        if (attachmentPresenter.hasMissingDraftParts()) {
+            // Saving now would remove the parts that were not downloaded from the server.
             return;
         }
 
@@ -923,7 +942,7 @@ public class MessageCompose extends BaseActivity implements OnClickListener,
 
         if (account.isUploadSentMessages()
             && !ignoreSentFolderNotAssigned && !account.hasSentFolder()) {
-            sentFolderNotFoundDialogFragmentFactory.show(account.getUuid(), getSupportFragmentManager());
+            sentFolderNotFoundDialogFragmentFactory.show(account.getId().toString(), getSupportFragmentManager());
             return;
         }
 
@@ -1347,7 +1366,7 @@ public class MessageCompose extends BaseActivity implements OnClickListener,
     private void openDefaultFolder() {
         long folderId = defaultFolderProvider.getDefaultFolder(account);
         LocalMessageSearch search = new LocalMessageSearch();
-        search.addAccountUuid(account.getUuid());
+        search.addAccountUuid(account.getId().toString());
         search.addAllowedFolder(folderId);
         MessageHomeActivity.actionDisplaySearch(this, search, false, true);
         finish();
@@ -1634,7 +1653,7 @@ public class MessageCompose extends BaseActivity implements OnClickListener,
         }
 
         if (!relatedMessageProcessed) {
-            attachmentPresenter.loadAllAvailableAttachments(messageViewInfo);
+            attachmentPresenter.processDraftMessage(messageViewInfo);
         }
 
         // Decode the identity header when loading a draft.
@@ -1696,7 +1715,7 @@ public class MessageCompose extends BaseActivity implements OnClickListener,
 
             if (messageReference != null) {
                 // Check if this is a valid account in our database
-                LegacyAccountDto account = preferences.getAccount(messageReference.getAccountUuid());
+                LegacyAccountDto account = preferences.getById(messageReference.getAccountId());
                 if (account != null) {
                     relatedMessageReference = messageReference;
                 }
@@ -1762,8 +1781,8 @@ public class MessageCompose extends BaseActivity implements OnClickListener,
          **/
         private void addFlagToReferencedMessage() {
             if (messageReference != null && flag != null) {
-                String accountUuid = messageReference.getAccountUuid();
-                LegacyAccountDto account = preferences.getAccount(accountUuid);
+                AccountId accountId = messageReference.getAccountId();
+                LegacyAccountDto account = preferences.getById(accountId);
                 long folderId = messageReference.getFolderId();
                 String sourceMessageUid = messageReference.getUid();
 
@@ -1947,7 +1966,15 @@ public class MessageCompose extends BaseActivity implements OnClickListener,
         @Override
         public void onMessageViewInfoLoadFinished(MessageViewInfo messageViewInfo) {
             internalMessageHandler.sendEmptyMessage(MSG_PROGRESS_OFF);
-            loadLocalMessageForDisplay(messageViewInfo, action);
+
+            // When a draft was incomplete, the attachment presenter asked for the complete message and we end up
+            // here a second time. The draft is already in the editor, and loadLocalMessageForDisplay() would add it
+            // once more as quoted text. So only the attachments that just arrived are picked up.
+            if (relatedMessageProcessed && action == Action.EDIT_DRAFT) {
+                attachmentPresenter.processDraftMessage(messageViewInfo);
+            } else {
+                loadLocalMessageForDisplay(messageViewInfo, action);
+            }
 
             if(!recipientPresenter.isToAddressAdded()) {
                 recipientMvpView.requestFocusOnToField();
@@ -1986,7 +2013,9 @@ public class MessageCompose extends BaseActivity implements OnClickListener,
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
+                    internalMessageHandler.sendEmptyMessage(MSG_PROGRESS_OFF);
                     Toast.makeText(MessageCompose.this, R.string.status_invalid_id_error, Toast.LENGTH_LONG).show();
+                    attachmentPresenter.onCompleteMessageDownloadFailed();
                 }
             });
         }
@@ -1996,7 +2025,9 @@ public class MessageCompose extends BaseActivity implements OnClickListener,
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
+                    internalMessageHandler.sendEmptyMessage(MSG_PROGRESS_OFF);
                     Toast.makeText(MessageCompose.this, R.string.status_network_error, Toast.LENGTH_LONG).show();
+                    attachmentPresenter.onCompleteMessageDownloadFailed();
                 }
             });
         }
@@ -2027,12 +2058,12 @@ public class MessageCompose extends BaseActivity implements OnClickListener,
             return;
         }
 
-        final ArrayList<String> uuids = new ArrayList<>();
+        final ArrayList<String> accountIds = new ArrayList<>();
         for (LegacyAccountDto legacyAccountDto : accounts) {
-            uuids.add(legacyAccountDto.getUuid());
+            accountIds.add(legacyAccountDto.getId().toString());
         }
         final MessageComposeInAppNotificationFragment inAppNotificationFragment =
-            MessageComposeInAppNotificationFragment.newInstance(uuids);
+            MessageComposeInAppNotificationFragment.newInstance(accountIds);
         fragmentManager
             .beginTransaction()
             .add(R.id.message_compose_in_app_notifications_container, inAppNotificationFragment,
@@ -2049,11 +2080,11 @@ public class MessageCompose extends BaseActivity implements OnClickListener,
                 return;
             }
 
-            String sourceAccountUuid = relatedMessageReference.getAccountUuid();
+            AccountId sourceAccountId = relatedMessageReference.getAccountId();
             long sourceFolderId = relatedMessageReference.getFolderId();
             String sourceMessageUid = relatedMessageReference.getUid();
 
-            boolean changedMessageIsCurrent = account.getUuid().equals(sourceAccountUuid) &&
+            boolean changedMessageIsCurrent = account.getId().equals(sourceAccountId) &&
                     folderId == sourceFolderId &&
                     oldUid.equals(sourceMessageUid);
 
@@ -2205,6 +2236,23 @@ public class MessageCompose extends BaseActivity implements OnClickListener,
         public void showMissingAttachmentsPartialMessageForwardWarning() {
             Toast.makeText(MessageCompose.this,
                     getString(R.string.message_compose_attachments_forward_toast), Toast.LENGTH_LONG).show();
+        }
+
+        @Override
+        public void downloadCompleteMessage() {
+            if (messageLoaderHelper == null) {
+                if (relatedMessageReference == null) {
+                    return;
+                }
+
+                // After a configuration change the draft is already processed, so onCreate() created no loader.
+                messageLoaderHelper = messageLoaderHelperFactory.createForMessageCompose(MessageCompose.this,
+                        getSupportLoaderManager(), getSupportFragmentManager(), messageLoaderCallbacks);
+                messageLoaderHelper.asyncStartOrResumeLoadingMessage(relatedMessageReference, null);
+            }
+
+            internalMessageHandler.sendEmptyMessage(MSG_PROGRESS_ON);
+            messageLoaderHelper.downloadCompleteMessage();
         }
     };
 
