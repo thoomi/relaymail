@@ -12,7 +12,7 @@ import net.thunderbird.core.android.account.LegacyAccountManager
 import net.thunderbird.core.common.mail.Protocols
 import net.thunderbird.core.logging.Logger
 import net.thunderbird.feature.account.AccountId
-import net.thunderbird.feature.mail.folder.api.FolderType
+import net.thunderbird.feature.mail.folder.FolderType
 import net.thunderbird.feature.mail.folder.api.RemoteFolder
 import net.thunderbird.feature.mail.folder.api.SpecialFolderSelection
 import net.thunderbird.feature.mail.folder.api.SpecialFolderUpdater
@@ -237,7 +237,7 @@ class DefaultSpecialFolderUpdater(
     )
 
     private fun getAccountById(accountId: AccountId): LegacyAccount {
-        return accountManager.getByIdSync(accountId) ?: error("Account not found: $accountId")
+        return accountManager.getById(accountId) ?: error("Account not found: $accountId")
     }
 
     private fun updateAccount(account: LegacyAccount) {

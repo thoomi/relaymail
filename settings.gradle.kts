@@ -82,6 +82,7 @@ include(
 
 include(
     ":app-common",
+    ":app-composition",
 )
 
 include(
@@ -139,6 +140,8 @@ include(
     ":feature:mail:message:export:impl-eml",
     ":feature:mail:message:reader:api",
     ":feature:mail:message:reader:impl",
+    ":feature:mail:storage:global-db-migration:api",
+    ":feature:mail:storage:global-db-migration:internal",
 )
 
 include(
@@ -220,8 +223,7 @@ include(
     ":core:android:network",
     ":core:android:permissions",
     ":core:android:testing",
-    ":core:android:webkit:api",
-    ":core:android:webkit:internal",
+    ":core:android:webkit",
 )
 
 include(
@@ -326,3 +328,4 @@ check(JavaVersion.current().isCompatibleWith(JavaVersion.VERSION_21)) {
     """.trimIndent()
 }
 include(":feature:changelog:internal")
+include(":feature:funding:common")

@@ -14,6 +14,7 @@ import net.thunderbird.core.android.account.LegacyAccount
 import net.thunderbird.core.android.account.LegacyAccountManager
 import net.thunderbird.core.common.resources.StringsResourceManager
 import net.thunderbird.core.ui.contract.mvi.BaseViewModel
+import net.thunderbird.feature.account.AccountIdFactory
 
 internal class AccountSetupCompositionViewModel(
     private val legacyAccountManager: LegacyAccountManager,
@@ -27,7 +28,8 @@ internal class AccountSetupCompositionViewModel(
         Pair(2, resources.stringResource(R.string.account_settings_signature__location_after_quoted_text)),
     )
 
-    private var account: LegacyAccount = legacyAccountManager.getAccount(accountUuid) ?: error("Couldn't find account")
+    private var account: LegacyAccount = legacyAccountManager.getById(AccountIdFactory.of(accountUuid))
+        ?: error("Couldn't find account")
 
     init {
         loadState()
@@ -69,7 +71,7 @@ internal class AccountSetupCompositionViewModel(
                 account = account.copy(signature = event.signature)
                 state.copy(
                     signature = account.signature ?: "",
-                    signaturePreviewHtmlText = account.signature?.buildSignatureHtmlPreviewText(),
+                    signaturePreviewHtmlText = account.signature.buildSignatureHtmlPreviewText(),
                 )
             }
 
@@ -101,7 +103,7 @@ internal class AccountSetupCompositionViewModel(
                     Pair(2, resources.stringResource(R.string.account_settings_signature__location_after_quoted_text))
                 },
                 saveSignatureAsHtml = account.signatureIsHtml,
-                signaturePreviewHtmlText = account.signature?.buildSignatureHtmlPreviewText(),
+                signaturePreviewHtmlText = account.signature.buildSignatureHtmlPreviewText(),
                 webViewConfig = legacyIdentitySignatureWebViewConfigurator.buildWebConfig(),
             )
         }
@@ -116,6 +118,10 @@ internal class AccountSetupCompositionViewModel(
         updateState { it.copy(saveSignatureAsHtml = event.checked) }
     }
 
-    private fun String?.buildSignatureHtmlPreviewText(): String? =
-        legacyIdentitySignatureWebViewConfigurator.buildSignatureHtmlPreviewText(signature = this)
+    private fun String?.buildSignatureHtmlPreviewText(): String? {
+        val previewContent = takeUnless { it.isNullOrBlank() }
+            ?: resources.stringResource(R.string.account_settings_signature_preview_empty)
+
+        return legacyIdentitySignatureWebViewConfigurator.buildSignatureHtmlPreviewText(signature = previewContent)
+    }
 }

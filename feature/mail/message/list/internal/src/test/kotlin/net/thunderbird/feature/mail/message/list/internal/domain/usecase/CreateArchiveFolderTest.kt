@@ -23,7 +23,7 @@ import net.thunderbird.core.android.account.LegacyAccount
 import net.thunderbird.core.common.exception.MessagingException
 import net.thunderbird.feature.account.AccountId
 import net.thunderbird.feature.account.AccountIdFactory
-import net.thunderbird.feature.mail.folder.api.FolderType
+import net.thunderbird.feature.mail.folder.FolderType
 import net.thunderbird.feature.mail.folder.api.SpecialFolderSelection
 import net.thunderbird.feature.mail.message.list.domain.CreateArchiveFolderOutcome
 import net.thunderbird.feature.mail.message.list.internal.fakes.FakeBackendFolderUpdater
@@ -56,7 +56,7 @@ class CreateArchiveFolderTest {
                 .prop("folderName") { it.folderName }
                 .isEqualTo(folderName)
 
-            assertThat(accountManager.getByIdCalls).isEmpty()
+            assertThat(accountManager.getByIdFlowCalls).isEmpty()
 
             awaitComplete()
         }
@@ -81,7 +81,7 @@ class CreateArchiveFolderTest {
                     .prop("error") { it.error }
                     .isEqualTo(CreateArchiveFolderOutcome.Error.AccountNotFound)
 
-                assertThat(accountManager.getByIdCalls).containsExactly(AccountIdFactory.of(accountUuid))
+                assertThat(accountManager.getByIdFlowCalls).containsExactly(AccountIdFactory.of(accountUuid))
                 awaitComplete()
             }
         }
@@ -298,7 +298,7 @@ class CreateArchiveFolderTest {
                 .prop("data") { it.data }
                 .isEqualTo(CreateArchiveFolderOutcome.Success.Created)
 
-            assertThat(accountManager.getByIdCalls).containsExactly(AccountIdFactory.of(accountUuid))
+            assertThat(accountManager.getByIdFlowCalls).containsExactly(AccountIdFactory.of(accountUuid))
             assertThat(backendStorageFactory.backendFolderUpdater.createFoldersCalls)
                 .containsExactly(createExpectedFolderInfo(folderName))
 
