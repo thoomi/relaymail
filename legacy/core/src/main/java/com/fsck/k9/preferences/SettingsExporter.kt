@@ -3,7 +3,6 @@ package com.fsck.k9.preferences
 import android.content.ContentResolver
 import android.net.Uri
 import android.util.Xml
-import com.fsck.k9.Preferences
 import com.fsck.k9.notification.NotificationSettingsUpdater
 import com.fsck.k9.preferences.ServerTypeConverter.fromServerSettingsType
 import com.fsck.k9.preferences.Settings.InvalidSettingValueException
@@ -13,7 +12,9 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import net.thunderbird.components.core.outcome.fold
-import net.thunderbird.core.android.account.LegacyAccountDto
+import net.thunderbird.core.android.account.LegacyAccount
+import net.thunderbird.core.android.account.LegacyAccountManager
+import net.thunderbird.core.preference.storage.StorageProvider
 import net.thunderbird.feature.account.AccountIdFactory
 import net.thunderbird.feature.account.storage.legacy.LegacyAccountStorageHandler.Companion.ACCOUNT_DESCRIPTION_KEY
 import net.thunderbird.feature.account.storage.legacy.LegacyAccountStorageHandler.Companion.IDENTITY_DESCRIPTION_KEY
@@ -23,9 +24,12 @@ import net.thunderbird.feature.mail.folder.api.data.repository.FolderQueryReposi
 import net.thunderbird.legacy.logging.Log
 import org.xmlpull.v1.XmlSerializer
 
+private const val TAG = "SettingsExporter"
+
 class SettingsExporter(
     private val contentResolver: ContentResolver,
-    private val preferences: Preferences,
+    private val accountManager: LegacyAccountManager,
+    private val storageProvider: StorageProvider,
     private val folderSettingsProvider: FolderSettingsProvider,
     private val folderQueryRepository: FolderQueryRepository,
     private val notificationSettingsUpdater: NotificationSettingsUpdater,
@@ -64,9 +68,9 @@ class SettingsExporter(
             serializer.attribute(null, VERSION_ATTRIBUTE, Settings.VERSION.toString())
             serializer.attribute(null, FILE_FORMAT_ATTRIBUTE, FILE_FORMAT_VERSION.toString())
 
-            Log.i("Exporting preferences")
+            Log.i(TAG, "Exporting preferences")
 
-            val storage = preferences.storage
+            val storage = storageProvider.storage
 
             val prefs: Map<String, Any> = storage.getAll().toSortedMap()
             if (includeGlobals) {
@@ -78,7 +82,7 @@ class SettingsExporter(
             serializer.startTag(null, ACCOUNTS_ELEMENT)
             for (accountUuid in accountUuids) {
                 val accountId = AccountIdFactory.of(accountUuid)
-                preferences.getById(accountId)?.let { account ->
+                accountManager.findById(accountId)?.let { account ->
                     writeAccount(serializer, account, prefs, includePasswords)
                 }
             }
@@ -98,7 +102,7 @@ class SettingsExporter(
         } catch (e: Exception) {
             // An error here could mean we export notification settings that don't reflect the current configuration
             // of the notification channels. But we prefer stale data over failing the export.
-            Log.w(e, "Error while updating accounts with notification configuration from system")
+            Log.w(TAG, e, "Error while updating accounts with notification configuration from system")
         }
     }
 
@@ -113,13 +117,14 @@ class SettingsExporter(
                     writeKeyAndPrettyValueFromSetting(serializer, key, setting, valueString)
                 } catch (e: InvalidSettingValueException) {
                     Log.w(
+                        TAG,
                         "Global setting \"%s\" has invalid value \"%s\" in preference storage. This shouldn't happen!",
                         key,
                         valueString,
                     )
                 }
             } else {
-                Log.d("Couldn't find key \"%s\" in preference storage. Using default value.", key)
+                Log.d(TAG, "Couldn't find key \"%s\" in preference storage. Using default value.", key)
                 writeKeyAndDefaultValueFromSetting(serializer, key, setting)
             }
         }
@@ -128,7 +133,7 @@ class SettingsExporter(
     @Suppress("LongMethod", "CyclomaticComplexMethod", "NestedBlockDepth")
     private suspend fun writeAccount(
         serializer: XmlSerializer,
-        account: LegacyAccountDto,
+        account: LegacyAccount,
         prefs: Map<String, Any>,
         includePasswords: Boolean,
     ) {
@@ -276,7 +281,7 @@ class SettingsExporter(
         serializer: XmlSerializer,
         keyPart: String,
         valueString: String,
-        account: LegacyAccountDto,
+        account: LegacyAccount,
     ) {
         val versionedSetting = AccountSettingsDescriptions.SETTINGS[keyPart]
         if (versionedSetting != null) {
@@ -289,6 +294,7 @@ class SettingsExporter(
                     writeKeyAndPrettyValueFromSetting(serializer, keyPart, setting, valueString)
                 } catch (e: InvalidSettingValueException) {
                     Log.w(
+                        TAG,
                         "Account setting \"%s\" (%s) has invalid value \"%s\" in preference storage. " +
                             "This shouldn't happen!",
                         keyPart,
@@ -301,7 +307,7 @@ class SettingsExporter(
     }
 
     private suspend fun writeFolderNameSettings(
-        account: LegacyAccountDto,
+        account: LegacyAccount,
         folderQueryRepository: FolderQueryRepository,
         serializer: XmlSerializer,
     ) {
@@ -407,6 +413,7 @@ class SettingsExporter(
                         writeKeyAndPrettyValueFromSetting(serializer, identityKey, setting, valueString)
                     } catch (e: InvalidSettingValueException) {
                         Log.w(
+                            TAG,
                             "Identity setting \"%s\" has invalid value \"%s\" in preference storage. " +
                                 "This shouldn't happen!",
                             identityKey,
@@ -447,6 +454,7 @@ class SettingsExporter(
                     writeKeyAndPrettyValueFromSetting(serializer, key, setting, value)
                 } catch (e: InvalidSettingValueException) {
                     Log.w(
+                        TAG,
                         "Folder setting \"%s\" has invalid value \"%s\" in preference storage. This shouldn't happen!",
                         key,
                         value,
