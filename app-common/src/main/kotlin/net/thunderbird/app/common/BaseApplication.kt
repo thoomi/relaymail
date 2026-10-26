@@ -24,9 +24,8 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import net.thunderbird.app.common.feature.LoggerLifecycleObserver
 import net.thunderbird.app.common.feature.applock.AppLockActivityLifecycleCallbacks
-import net.thunderbird.core.common.exception.ExceptionHandler
-import net.thunderbird.core.logging.Logger
-import net.thunderbird.core.logging.file.FileLogSink
+import net.thunderbird.components.core.logging.Logger
+import net.thunderbird.components.core.logging.file.FileLogSink
 import net.thunderbird.core.ui.theme.manager.ThemeManager
 import net.thunderbird.feature.applock.api.AppLockGate
 import net.thunderbird.legacy.logging.Log
@@ -35,6 +34,8 @@ import org.koin.android.ext.android.inject
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import androidx.work.Configuration as WorkManagerConfiguration
+
+private const val TAG = "BaseApplication"
 
 abstract class BaseApplication : Application(), WorkManagerConfiguration.Provider {
 
@@ -75,7 +76,7 @@ abstract class BaseApplication : Application(), WorkManagerConfiguration.Provide
             messagingController.addListener(listener)
         }
         val originalHandler = Thread.getDefaultUncaughtExceptionHandler()
-        Thread.setDefaultUncaughtExceptionHandler(ExceptionHandler(originalHandler, logger))
+        Thread.setDefaultUncaughtExceptionHandler(ExceptionHandler(originalHandler, logger, syncDebugFileLogSink))
 
         ProcessLifecycleOwner.get().lifecycle.addObserver(LoggerLifecycleObserver(syncDebugFileLogSink))
 
@@ -117,7 +118,7 @@ abstract class BaseApplication : Application(), WorkManagerConfiguration.Provide
     }
 
     private fun updateConfigurationWithLocale(configuration: Configuration, locale: Locale) {
-        Log.d("Updating application configuration with locale '$locale'")
+        Log.d(TAG, "Updating application configuration with locale '$locale'")
 
         val newConfiguration = Configuration(configuration).apply {
             currentLocale = locale
@@ -141,7 +142,7 @@ abstract class BaseApplication : Application(), WorkManagerConfiguration.Provide
         if (appLanguageManagerInitialized) {
             appLanguageManager.getOverrideLocale()?.let { overrideLocale ->
                 if (resources.configuration.currentLocale != overrideLocale) {
-                    Log.w("Resources configuration was reset. Re-applying locale override.")
+                    Log.w(TAG, "Resources configuration was reset. Re-applying locale override.")
                     appLanguageManager.applyOverrideLocale()
                     applyOverrideLocaleToConfiguration()
                 }
