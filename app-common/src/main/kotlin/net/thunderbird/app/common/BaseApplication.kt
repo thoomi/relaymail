@@ -26,7 +26,6 @@ import net.thunderbird.app.common.feature.LoggerLifecycleObserver
 import net.thunderbird.app.common.feature.applock.AppLockActivityLifecycleCallbacks
 import net.thunderbird.components.core.logging.Logger
 import net.thunderbird.components.core.logging.file.FileLogSink
-import net.thunderbird.core.common.exception.ExceptionHandler
 import net.thunderbird.core.ui.theme.manager.ThemeManager
 import net.thunderbird.feature.applock.api.AppLockGate
 import net.thunderbird.legacy.logging.Log
