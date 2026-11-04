@@ -7,6 +7,7 @@ import android.provider.Settings
 import android.util.TypedValue
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.ComposeView
@@ -43,6 +44,7 @@ internal class DefaultAppLockGate(
     private val coordinator: AppLockCoordinator,
     private val authenticatorFactory: AppLockAuthenticatorFactory,
     private val themeProvider: FeatureThemeProvider,
+    private val isWindowFocused: () -> Boolean = activity::hasWindowFocus,
 ) : AppLockGate {
 
     private sealed interface ContentOverlayState {
@@ -56,8 +58,11 @@ internal class DefaultAppLockGate(
     private var stateObserverJob: Job? = null
     private var authenticationJob: Job? = null
     private var isResumed: Boolean = false
+    private val windowFocusChangeListener = ViewTreeObserver.OnWindowFocusChangeListener(::onWindowFocusChanged)
 
     override fun onStart(owner: LifecycleOwner) {
+        activity.window.decorView.viewTreeObserver.addOnWindowFocusChangeListener(windowFocusChangeListener)
+
         // Start observing state changes to update overlay and trigger auth if needed
         stateObserverJob = activity.lifecycleScope.launch {
             coordinator.state.collect { state ->
@@ -114,17 +119,27 @@ internal class DefaultAppLockGate(
     }
 
     override fun onStop(owner: LifecycleOwner) {
+        activity.window.decorView.viewTreeObserver.removeOnWindowFocusChangeListener(windowFocusChangeListener)
         stateObserverJob?.cancel()
         stateObserverJob = null
         lastAttemptId = null // Allow relaunch on next start
     }
 
     override fun onDestroy(owner: LifecycleOwner) {
+        activity.window.decorView.viewTreeObserver.removeOnWindowFocusChangeListener(windowFocusChangeListener)
         hideLockOverlay()
         lastAttemptId = null
     }
 
+    internal fun onWindowFocusChanged(hasFocus: Boolean) {
+        if (hasFocus && isResumed) {
+            triggerAuthenticationIfNeeded()
+        }
+    }
+
     private fun triggerAuthenticationIfNeeded() {
+        if (!isResumed || !isWindowFocused()) return
+
         when (val state = coordinator.state.value) {
             is AppLockState.Unlocking -> {
                 val attemptId = state.attemptId
