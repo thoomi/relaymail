@@ -43,6 +43,7 @@ internal class DefaultAppLockGate(
     private val coordinator: AppLockCoordinator,
     private val authenticatorFactory: AppLockAuthenticatorFactory,
     private val themeProvider: FeatureThemeProvider,
+    private val windowFocusMonitor: WindowFocusMonitor = ViewTreeObserverWindowFocusMonitor(activity),
 ) : AppLockGate {
 
     private sealed interface ContentOverlayState {
@@ -58,6 +59,8 @@ internal class DefaultAppLockGate(
     private var isResumed: Boolean = false
 
     override fun onStart(owner: LifecycleOwner) {
+        windowFocusMonitor.start(::triggerAuthenticationIfNeeded)
+
         // Start observing state changes to update overlay and trigger auth if needed
         stateObserverJob = activity.lifecycleScope.launch {
             coordinator.state.collect { state ->
@@ -114,17 +117,21 @@ internal class DefaultAppLockGate(
     }
 
     override fun onStop(owner: LifecycleOwner) {
+        windowFocusMonitor.stop()
         stateObserverJob?.cancel()
         stateObserverJob = null
         lastAttemptId = null // Allow relaunch on next start
     }
 
     override fun onDestroy(owner: LifecycleOwner) {
+        windowFocusMonitor.stop()
         hideLockOverlay()
         lastAttemptId = null
     }
 
     private fun triggerAuthenticationIfNeeded() {
+        if (!isResumed || !windowFocusMonitor.isFocused) return
+
         when (val state = coordinator.state.value) {
             is AppLockState.Unlocking -> {
                 val attemptId = state.attemptId

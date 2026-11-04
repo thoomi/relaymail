@@ -38,7 +38,6 @@ class DefaultAppLockGateTest {
 
     private lateinit var coordinator: FakeAppLockCoordinator
     private lateinit var testSubject: DefaultAppLockGate
-
     private val authenticatorFactory = AppLockAuthenticatorFactory { _ ->
         object : AppLockAuthenticator {
             override suspend fun authenticate(): AppLockResult = Outcome.Success(Unit)
@@ -63,11 +62,45 @@ class DefaultAppLockGateTest {
         val controller = Robolectric.buildActivity(TestActivity::class.java)
         controller.create()
         val activity = controller.get()
-        testSubject = DefaultAppLockGate(activity, coordinator, authenticatorFactory, themeProvider)
+        testSubject = DefaultAppLockGate(
+            activity,
+            coordinator,
+            authenticatorFactory,
+            themeProvider,
+            FakeWindowFocusMonitor(isFocused = true),
+        )
         activity.lifecycle.addObserver(testSubject)
         controller.start().resume()
         shadowOf(Looper.getMainLooper()).idle()
         return controller
+    }
+
+    @Test
+    fun `should defer authentication until window gains focus`() {
+        coordinator.suspendOnAuthenticate()
+        coordinator.setState(AppLockState.Locked)
+        val controller = Robolectric.buildActivity(TestActivity::class.java).create()
+        val activity = controller.get()
+        val windowFocusMonitor = FakeWindowFocusMonitor(isFocused = false)
+        testSubject = DefaultAppLockGate(
+            activity = activity,
+            coordinator = coordinator,
+            authenticatorFactory = authenticatorFactory,
+            themeProvider = themeProvider,
+            windowFocusMonitor = windowFocusMonitor,
+        )
+        activity.lifecycle.addObserver(testSubject)
+
+        controller.start().resume()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertThat(coordinator.authenticateCallCount).isEqualTo(0)
+        assertThat(findOverlay(activity)).isNotNull()
+
+        windowFocusMonitor.gainFocus()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertThat(coordinator.authenticateCallCount).isEqualTo(1)
     }
 
     @Test
@@ -386,7 +419,13 @@ class DefaultAppLockGateTest {
         val controllerB = Robolectric.buildActivity(TestActivity::class.java)
         controllerB.create()
         val activityB = controllerB.get()
-        val gateB = DefaultAppLockGate(activityB, coordinator, authenticatorFactory, themeProvider)
+        val gateB = DefaultAppLockGate(
+            activityB,
+            coordinator,
+            authenticatorFactory,
+            themeProvider,
+            FakeWindowFocusMonitor(isFocused = true),
+        )
         activityB.lifecycle.addObserver(gateB)
         controllerB.start().resume()
         shadowOf(Looper.getMainLooper()).idle()
@@ -544,7 +583,13 @@ class DefaultAppLockGateTest {
         val newController = Robolectric.buildActivity(TestActivity::class.java)
         newController.create()
         val newActivity = newController.get()
-        val newGate = DefaultAppLockGate(newActivity, coordinator, authenticatorFactory, themeProvider)
+        val newGate = DefaultAppLockGate(
+            newActivity,
+            coordinator,
+            authenticatorFactory,
+            themeProvider,
+            FakeWindowFocusMonitor(isFocused = true),
+        )
         newActivity.lifecycle.addObserver(newGate)
         newController.start().resume()
         shadowOf(Looper.getMainLooper()).idle()
@@ -564,7 +609,13 @@ class DefaultAppLockGateTest {
         val controllerB = Robolectric.buildActivity(TestActivity::class.java)
         controllerB.create()
         val activityB = controllerB.get()
-        val gateB = DefaultAppLockGate(activityB, coordinator, authenticatorFactory, themeProvider)
+        val gateB = DefaultAppLockGate(
+            activityB,
+            coordinator,
+            authenticatorFactory,
+            themeProvider,
+            FakeWindowFocusMonitor(isFocused = true),
+        )
         activityB.lifecycle.addObserver(gateB)
         controllerB.start().resume()
         shadowOf(Looper.getMainLooper()).idle()
@@ -591,7 +642,13 @@ class DefaultAppLockGateTest {
         val controllerB = Robolectric.buildActivity(TestActivity::class.java)
         controllerB.create()
         val activityB = controllerB.get()
-        val gateB = DefaultAppLockGate(activityB, coordinator, authenticatorFactory, themeProvider)
+        val gateB = DefaultAppLockGate(
+            activityB,
+            coordinator,
+            authenticatorFactory,
+            themeProvider,
+            FakeWindowFocusMonitor(isFocused = true),
+        )
         activityB.lifecycle.addObserver(gateB)
         controllerB.start().resume()
         shadowOf(Looper.getMainLooper()).idle()
@@ -645,6 +702,25 @@ class DefaultAppLockGateTest {
             }
         }
         return null
+    }
+
+    private class FakeWindowFocusMonitor(
+        override var isFocused: Boolean,
+    ) : WindowFocusMonitor {
+        private var onFocusGained: (() -> Unit)? = null
+
+        override fun start(onFocusGained: () -> Unit) {
+            this.onFocusGained = onFocusGained
+        }
+
+        override fun stop() {
+            onFocusGained = null
+        }
+
+        fun gainFocus() {
+            isFocused = true
+            onFocusGained?.invoke()
+        }
     }
 
     class TestActivity : FragmentActivity() {
