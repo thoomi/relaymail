@@ -38,8 +38,6 @@ class DefaultAppLockGateTest {
 
     private lateinit var coordinator: FakeAppLockCoordinator
     private lateinit var testSubject: DefaultAppLockGate
-
-    private val isWindowFocused = { true }
     private val authenticatorFactory = AppLockAuthenticatorFactory { _ ->
         object : AppLockAuthenticator {
             override suspend fun authenticate(): AppLockResult = Outcome.Success(Unit)
@@ -69,7 +67,7 @@ class DefaultAppLockGateTest {
             coordinator,
             authenticatorFactory,
             themeProvider,
-            isWindowFocused,
+            FakeWindowFocusMonitor(isFocused = true),
         )
         activity.lifecycle.addObserver(testSubject)
         controller.start().resume()
@@ -83,13 +81,13 @@ class DefaultAppLockGateTest {
         coordinator.setState(AppLockState.Locked)
         val controller = Robolectric.buildActivity(TestActivity::class.java).create()
         val activity = controller.get()
-        var isWindowFocused = false
+        val windowFocusMonitor = FakeWindowFocusMonitor(isFocused = false)
         testSubject = DefaultAppLockGate(
             activity = activity,
             coordinator = coordinator,
             authenticatorFactory = authenticatorFactory,
             themeProvider = themeProvider,
-            isWindowFocused = { isWindowFocused },
+            windowFocusMonitor = windowFocusMonitor,
         )
         activity.lifecycle.addObserver(testSubject)
 
@@ -99,8 +97,7 @@ class DefaultAppLockGateTest {
         assertThat(coordinator.authenticateCallCount).isEqualTo(0)
         assertThat(findOverlay(activity)).isNotNull()
 
-        isWindowFocused = true
-        testSubject.onWindowFocusChanged(hasFocus = true)
+        windowFocusMonitor.gainFocus()
         shadowOf(Looper.getMainLooper()).idle()
 
         assertThat(coordinator.authenticateCallCount).isEqualTo(1)
@@ -427,7 +424,7 @@ class DefaultAppLockGateTest {
             coordinator,
             authenticatorFactory,
             themeProvider,
-            isWindowFocused,
+            FakeWindowFocusMonitor(isFocused = true),
         )
         activityB.lifecycle.addObserver(gateB)
         controllerB.start().resume()
@@ -591,7 +588,7 @@ class DefaultAppLockGateTest {
             coordinator,
             authenticatorFactory,
             themeProvider,
-            isWindowFocused,
+            FakeWindowFocusMonitor(isFocused = true),
         )
         newActivity.lifecycle.addObserver(newGate)
         newController.start().resume()
@@ -617,7 +614,7 @@ class DefaultAppLockGateTest {
             coordinator,
             authenticatorFactory,
             themeProvider,
-            isWindowFocused,
+            FakeWindowFocusMonitor(isFocused = true),
         )
         activityB.lifecycle.addObserver(gateB)
         controllerB.start().resume()
@@ -650,7 +647,7 @@ class DefaultAppLockGateTest {
             coordinator,
             authenticatorFactory,
             themeProvider,
-            isWindowFocused,
+            FakeWindowFocusMonitor(isFocused = true),
         )
         activityB.lifecycle.addObserver(gateB)
         controllerB.start().resume()
@@ -705,6 +702,25 @@ class DefaultAppLockGateTest {
             }
         }
         return null
+    }
+
+    private class FakeWindowFocusMonitor(
+        override var isFocused: Boolean,
+    ) : WindowFocusMonitor {
+        private var onFocusGained: (() -> Unit)? = null
+
+        override fun start(onFocusGained: () -> Unit) {
+            this.onFocusGained = onFocusGained
+        }
+
+        override fun stop() {
+            onFocusGained = null
+        }
+
+        fun gainFocus() {
+            isFocused = true
+            onFocusGained?.invoke()
+        }
     }
 
     class TestActivity : FragmentActivity() {
