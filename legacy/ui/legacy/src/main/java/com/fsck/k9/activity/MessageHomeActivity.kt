@@ -14,6 +14,7 @@ import android.view.animation.AnimationUtils
 import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
+import androidx.annotation.VisibleForTesting
 import androidx.appcompat.app.ActionBar
 import androidx.appcompat.view.ActionMode
 import androidx.core.view.isGone
@@ -39,11 +40,10 @@ import com.fsck.k9.K9.fontSizes
 import com.fsck.k9.activity.compose.MessageActions
 import com.fsck.k9.controller.MessagingController
 import com.fsck.k9.search.isUnified
-import com.fsck.k9.search.isUnifiedInbox
+import com.fsck.k9.search.unifiedFolderRole
 import com.fsck.k9.ui.BuildConfig
 import com.fsck.k9.ui.R
 import com.fsck.k9.ui.base.BaseActivity
-import com.fsck.k9.ui.managefolders.ManageFoldersActivity
 import com.fsck.k9.ui.messagelist.DefaultFolderProvider
 import com.fsck.k9.ui.messagelist.MessageListFragmentBridgeContract
 import com.fsck.k9.ui.messagelist.MessageListFragmentBridgeContract.MessageListFragmentListener
@@ -71,6 +71,7 @@ import net.thunderbird.feature.account.AccountIdFactory
 import net.thunderbird.feature.account.usecase.GetDefaultAccountId
 import net.thunderbird.feature.account.AccountId
 import net.thunderbird.feature.funding.api.FundingManager
+import net.thunderbird.feature.mail.folder.FolderRole
 import net.thunderbird.feature.mail.folder.FolderType
 import net.thunderbird.feature.funding.api.FundingType
 import net.thunderbird.feature.navigation.drawer.api.NavigationDrawer
@@ -386,24 +387,16 @@ open class MessageHomeActivity :
             return
         }
 
-        if (savedInstanceState != null) {
-            val savedDisplayMode = BundleCompat.getSerializable(
-                savedInstanceState,
-                STATE_DISPLAY_MODE,
-                DisplayMode::class.java,
-            )
-
-            if (savedDisplayMode != null && savedDisplayMode != DisplayMode.SPLIT_VIEW) {
-                displayMode = savedDisplayMode
-                return
-            }
+        val savedDisplayMode = savedInstanceState?.let {
+            BundleCompat.getSerializable(it, STATE_DISPLAY_MODE, DisplayMode::class.java)
         }
 
-        displayMode = if (messageViewContainerFragment != null || messageReference != null) {
-            DisplayMode.MESSAGE_VIEW
-        } else {
-            DisplayMode.MESSAGE_LIST
-        }
+        displayMode = resolveDisplayMode(
+            savedMode = savedDisplayMode,
+            isRestoring = savedInstanceState != null,
+            hasMessageView = messageViewContainerFragment != null,
+            hasMessageReference = messageReference != null,
+        )
     }
 
     private fun useSplitView(): Boolean {
@@ -714,7 +707,7 @@ open class MessageHomeActivity :
             openAccount = { accountId -> openRealAccount(accountId) },
             openAddAccount = { launchAddAccountScreen() },
             openFolder = { accountId, folderId -> openFolder(accountId, folderId) },
-            openUnifiedFolder = { openUnifiedFolders() },
+            openUnifiedFolder = { role -> openUnifiedFolder(role) },
             openSettings = { SettingsActivity.launch(this) },
             createDrawerListener = { createDrawerListener() },
         )
@@ -766,10 +759,10 @@ open class MessageHomeActivity :
         onMessageListDisplayed()
     }
 
-    private fun openUnifiedFolders() {
+    private fun openUnifiedFolder(role: FolderRole) {
         actionDisplaySearch(
             this,
-            createSearchAccount().relatedSearch,
+            LocalMessageSearch.createUnifiedSearch(role),
             false,
             false,
         )
@@ -784,7 +777,7 @@ open class MessageHomeActivity :
 
     fun openRealAccount(accountId: AccountId) {
         if (accountId == UnifiedAccountId) {
-            openUnifiedFolders()
+            openUnifiedFolder(FolderRole.INBOX)
         } else {
             val account = accountManager.findById(accountId) ?: return
             val folderId = defaultFolderProvider.getDefaultFolder(accountId)
@@ -855,8 +848,8 @@ open class MessageHomeActivity :
             collapseSearchView()
         } else if (isDrawerEnabled && currentAccount != null && supportFragmentManager.backStackEntryCount == 0) {
             if (generalSettingsManager.getConfig().display.inboxSettings.isShowUnifiedInbox) {
-                if (currentSearch?.isUnifiedInbox != true) {
-                    openUnifiedFolders()
+                if (currentSearch?.unifiedFolderRole != FolderRole.INBOX) {
+                    openUnifiedFolder(FolderRole.INBOX)
                 } else {
                     dispatchOnBackPressed(callback)
                 }
@@ -1505,24 +1498,24 @@ open class MessageHomeActivity :
                     )
                 }
 
-                // Don't select any item in the drawer because the Unified Inbox is displayed,
+                // Don't select any item in the drawer because the unified folder is displayed,
                 // but not listed in the drawer
-                search.isUnifiedInbox &&
+                search.isUnified &&
                     !generalSettingsManager.getConfig().display.inboxSettings.isShowUnifiedInbox -> drawer.deselect()
 
-                search.isUnifiedInbox -> drawer.selectUnifiedInbox()
+                else -> search.unifiedFolderRole?.let { drawer.selectUnifiedFolder(it) }
             }
         } ?: logger.warn(TAG) { "Couldn't select folder for $accountId as LocalSearch is null." }
     }
 
     private fun createSearchAccount(): SearchAccount {
         return SearchAccount.createUnifiedInboxSearch(
-            title = coreResourceProvider.searchUnifiedFoldersTitle(),
-            detail = coreResourceProvider.searchUnifiedFoldersDetail(),
+            title = coreResourceProvider.unifiedInboxTitle(),
+            detail = coreResourceProvider.unifiedInboxDetail(),
         )
     }
 
-    private enum class DisplayMode {
+    internal enum class DisplayMode {
         MESSAGE_LIST,
         MESSAGE_VIEW,
         SPLIT_VIEW,
@@ -1537,6 +1530,25 @@ open class MessageHomeActivity :
     )
 
     companion object : KoinComponent {
+        /**
+         * Resolve the non-split display mode.
+         *
+         * The intent's message reference is only opened on first launch (see [initializeFragments]), so when
+         * restoring, [DisplayMode.MESSAGE_VIEW] is only valid if a message view fragment was actually restored.
+         */
+        @VisibleForTesting
+        internal fun resolveDisplayMode(
+            savedMode: DisplayMode?,
+            isRestoring: Boolean,
+            hasMessageView: Boolean,
+            hasMessageReference: Boolean,
+        ): DisplayMode = when {
+            savedMode == DisplayMode.MESSAGE_LIST -> DisplayMode.MESSAGE_LIST
+            hasMessageView -> DisplayMode.MESSAGE_VIEW
+            !isRestoring && hasMessageReference -> DisplayMode.MESSAGE_VIEW
+            else -> DisplayMode.MESSAGE_LIST
+        }
+
         private const val EXTRA_SEARCH = "search_bytes"
         private const val EXTRA_NO_THREADING = "no_threading"
 
@@ -1601,8 +1613,8 @@ open class MessageHomeActivity :
         ): Intent {
             return Intent(context, MessageHomeActivity::class.java).apply {
                 val search = SearchAccount.createUnifiedInboxSearch(
-                    title = coreResourceProvider.searchUnifiedFoldersTitle(),
-                    detail = coreResourceProvider.searchUnifiedFoldersDetail(),
+                    title = coreResourceProvider.unifiedInboxTitle(),
+                    detail = coreResourceProvider.unifiedInboxDetail(),
                 ).relatedSearch
 
                 putExtra(EXTRA_ACCOUNT, accountId.toString())
@@ -1670,8 +1682,8 @@ open class MessageHomeActivity :
             return Intent(context, MessageHomeActivity::class.java).apply {
                 if (openInUnifiedInbox) {
                     val search = SearchAccount.createUnifiedInboxSearch(
-                        title = coreResourceProvider.searchUnifiedFoldersTitle(),
-                        detail = coreResourceProvider.searchUnifiedFoldersDetail(),
+                        title = coreResourceProvider.unifiedInboxTitle(),
+                        detail = coreResourceProvider.unifiedInboxDetail(),
                     ).relatedSearch
                     putExtra(EXTRA_SEARCH, LocalMessageSearchSerializer.serialize(search))
                 }
